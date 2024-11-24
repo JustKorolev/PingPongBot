@@ -1,10 +1,6 @@
 """Launch the ball hitting demo
 
-   ros2 launch demos hitball.launch.py
-
-   This should start
-     1) RVIZ, configured to see the visualization markers
-     2) The ball hitting demo
+   ros2 launch pingpongbot hitball.launch.py
 
 """
 
@@ -26,7 +22,7 @@ def generate_launch_description():
     # LOCATE FILES
 
     # Locate the RVIZ configuration file.
-    rvizcfg = os.path.join(pkgdir('pingpongbot'), 'rviz/viewmarkers.rviz')
+    rvizcfg = os.path.join(pkgdir('pingpongbot'), 'rviz/pingpongbotv1.rviz')
 
     # Locate the URDF file.
     urdf = os.path.join(pkgdir('pingpongbot'), 'urdf/ur10_robot.urdf')
@@ -56,6 +52,7 @@ def generate_launch_description():
         parameters = [{'robot_description': robot_description}])
 
     # Configure a node for joint state publisher gui
+    # TODO: FIX
     node_joint_state_publisher_gui = Node(
         package='joint_state_publisher_gui',
         executable='joint_state_publisher_gui',
@@ -81,5 +78,5 @@ def generate_launch_description():
         node_demo,
         node_rviz,
         node_robot_state_publisher,
-        # node_joint_state_publisher_gui
+        node_joint_state_publisher_gui
     ])
