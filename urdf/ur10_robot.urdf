@@ -329,7 +329,7 @@
     <visual>
         <origin rpy="1.57075 0 0" xyz="0 0 0"/>
         <geometry>
-              <mesh scale="0.002 0.002 0.002" filename="package://pingpongbot/urdf/paddle-Body.stl"/>
+            <mesh scale="0.002 0.002 0.002" filename="package://pingpongbot/urdf/paddle-Body.stl"/>
         </geometry>
         <material name="LightGrey"/>
     </visual>
@@ -345,14 +345,19 @@
     </inertial>
 </link>
 
-  <!-- Attach the paddle to the tool0 link, which is end defector off uwr10 -->
-  <joint name="paddle_fixed_joint" type="fixed">
-      <parent link="tool0"/>
-      <child link="paddle"/>
-      <!-- Fiddle arounf with positions to get it how we want it -->
-      <origin rpy="0 0 0" xyz="0 0 0.15"/>
-  </joint>
+<joint name="paddle_fixed_joint" type="fixed">
+    <parent link="tool0"/>
+    <child link="paddle"/>
+    <origin rpy="0 0 0" xyz="0 0 0.15"/>
+</joint>
 
+<link name="tip"/>
+
+<joint name="tip_joint" type="fixed">
+    <parent link="paddle"/>
+    <child link="tip"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+</joint>
 
   <link name="world"/>
   <joint name="world_joint" type="fixed">

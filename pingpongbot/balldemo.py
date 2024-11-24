@@ -40,9 +40,9 @@ class DemoNode(Node):
         # Initialize the ball position, velocity, set the acceleration.
         self.radius = 0.02
 
-        self.p = np.array([0.0, 0.0, 2.0])
+        self.p = np.array([0.8, 0.8, 0.8])
         self.v = np.array([0.0, 0.0, 0.0])
-        self.a = np.array([0.0, 0.0, -9.81])
+        self.a = np.array([0.0, 0.0, 0.0])
 
         # Create the sphere marker.
         diam        = 2 * self.radius
