@@ -230,6 +230,7 @@
       <origin rpy="0 0 0" xyz="-0.01 0 0"/>
     </collision>
   </link>
+  
   <transmission name="shoulder_pan_trans">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="shoulder_pan_joint">
@@ -323,6 +324,36 @@
     <parent link="wrist_3_link"/>
     <child link="tool0"/>
   </joint>
+<!-- Define the paddle link -->
+<link name="paddle">
+    <visual>
+        <origin rpy="1.57075 0 0" xyz="0 0 0"/>
+        <geometry>
+            <mesh scale="0.001 0.001 0.001" filename="package://PingPongBot/urdf/paddle-Body.stl"/>
+        </geometry>
+        <material name="grey"/>
+    </visual>
+    <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <mesh scale="0.001 0.001 0.001" filename="package://PingPongBot/urdf/paddle-Body.stl"/>
+        </geometry>
+    </collision>
+    <inertial>
+        <mass value="0.037"/>
+        <inertia ixx="0.0000391306" ixy="0.0" ixz="0.0" iyy="0.0000391306" iyz="0.0" izz="0.0000781625"/>
+    </inertial>
+</link>
+
+  <!-- Attach the paddle to the tool0 link, which is end defector off uwr10 -->
+  <joint name="paddle_fixed_joint" type="fixed">
+      <parent link="tool0"/> 
+      <child link="paddle"/>
+      <!-- Fiddle arounf with positions to get it how we want it -->
+      <origin rpy="0 0 0" xyz="0 0 0.1"/> 
+  </joint>
+
+
   <link name="world"/>
   <joint name="world_joint" type="fixed">
     <parent link="world"/>
