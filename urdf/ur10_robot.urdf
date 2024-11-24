@@ -16,7 +16,7 @@
       <timeout>5</timeout>
       <powerStateTopic>power_state</powerStateTopic>
       <powerStateRate>10.0</powerStateRate>
-      <fullChargeCapacity>87.78</fullChargeCapacity>     
+      <fullChargeCapacity>87.78</fullChargeCapacity>
       <dischargeRate>-474</dischargeRate>
       <chargeRate>525</chargeRate>
       <dischargeVoltage>15.52</dischargeVoltage>
@@ -230,7 +230,7 @@
       <origin rpy="0 0 0" xyz="-0.01 0 0"/>
     </collision>
   </link>
-  
+
   <transmission name="shoulder_pan_trans">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="shoulder_pan_joint">
@@ -331,7 +331,7 @@
         <geometry>
             <mesh scale="0.001 0.001 0.001" filename="package://PingPongBot/urdf/paddle-Body.stl"/>
         </geometry>
-        <material name="grey"/>
+        <material name="LightGrey"/>
     </visual>
     <collision>
         <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -347,10 +347,10 @@
 
   <!-- Attach the paddle to the tool0 link, which is end defector off uwr10 -->
   <joint name="paddle_fixed_joint" type="fixed">
-      <parent link="tool0"/> 
+      <parent link="tool0"/>
       <child link="paddle"/>
       <!-- Fiddle arounf with positions to get it how we want it -->
-      <origin rpy="0 0 0" xyz="0 0 0.1"/> 
+      <origin rpy="0 0 0" xyz="0 0 0.1"/>
   </joint>
 
 
