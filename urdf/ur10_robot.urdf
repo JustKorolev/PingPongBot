@@ -329,14 +329,14 @@
     <visual>
         <origin rpy="1.57075 0 0" xyz="0 0 0"/>
         <geometry>
-            <mesh scale="0.001 0.001 0.001" filename="package://PingPongBot/urdf/paddle-Body.stl"/>
+              <mesh scale="0.002 0.002 0.002" filename="package://pingpongbot/urdf/paddle-Body.stl"/>
         </geometry>
         <material name="LightGrey"/>
     </visual>
     <collision>
         <origin rpy="0 0 0" xyz="0 0 0"/>
         <geometry>
-            <mesh scale="0.001 0.001 0.001" filename="package://PingPongBot/urdf/paddle-Body.stl"/>
+            <mesh scale="0.002 0.002 0.002" filename="package://pingpongbot/urdf/paddle-Body.stl"/>
         </geometry>
     </collision>
     <inertial>
@@ -350,7 +350,7 @@
       <parent link="tool0"/>
       <child link="paddle"/>
       <!-- Fiddle arounf with positions to get it how we want it -->
-      <origin rpy="0 0 0" xyz="0 0 0.1"/>
+      <origin rpy="0 0 0" xyz="0 0 0.15"/>
   </joint>
 
 
