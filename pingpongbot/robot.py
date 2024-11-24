@@ -19,15 +19,16 @@ from std_msgs.msg import Float64
 class Trajectory():
     # Initialization
     def __init__(self, node):
+        self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
+        
         # Our home joint angles
         self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
-        self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
-        (self.home_p, self.home_R, _, _)  = self.chain.fkin(self.q0)
 
         # Initial position
         self.q0 = self.home_q
         self.p0 = self.home_p
         self.R0 = self.home_R
+        (self.home_p, self.home_R, _, _)  = self.chain.fkin(self.q0)
 
 
         self.qd = self.q0

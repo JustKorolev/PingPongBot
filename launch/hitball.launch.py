@@ -60,7 +60,7 @@ def generate_launch_description():
 
     # Configure a node for the joint trajectory
     node_trajectory = Node(
-        name       = 'trajectory', 
+        name       = 'trajectory',
         package    = 'pingpongbot',
         executable = 'robot',
         output     = 'screen')
@@ -84,6 +84,6 @@ def generate_launch_description():
         node_demo,
         node_rviz,
         node_robot_state_publisher,
-        # node_trajectory,
+        node_trajectory,
         # node_joint_state_publisher_gui
     ])
