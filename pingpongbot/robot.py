@@ -26,9 +26,9 @@ class Trajectory():
 
         # Initial position
         self.q0 = self.home_q
+        self.home_p, self.home_R, _, _  = self.chain.fkin(self.q0)
         self.p0 = self.home_p
         self.R0 = self.home_R
-        (self.home_p, self.home_R, _, _)  = self.chain.fkin(self.q0)
 
 
         self.qd = self.q0
@@ -52,7 +52,7 @@ class Trajectory():
         swing_back_pd = pd_f - np.array([0, 0.5, 0.15])
 
         # Swing back sequence
-        if t < swing_back_pd:
+        if t < swing_back_time:
             pd, vd = spline(t, swing_back_time, self.home_p, swing_back_pd,
                             np.zeros(3), np.zeros(3))
 
