@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'balldemo = pingpongbot.balldemo:main',
+            'robot = pingpongbot.robot:main'
         ],
     },
 )

@@ -52,12 +52,18 @@ def generate_launch_description():
         parameters = [{'robot_description': robot_description}])
 
     # Configure a node for joint state publisher gui
-    # TODO: FIX
     node_joint_state_publisher_gui = Node(
         package='joint_state_publisher_gui',
         executable='joint_state_publisher_gui',
         name='joint_state_publisher_gui',
         output='screen')
+
+    # Configure a node for the joint trajectory
+    node_trajectory = Node(
+        name       = 'trajectory', 
+        package    = 'pingpongbot',
+        executable = 'robot',
+        output     = 'screen')
 
     # Configure a node for RVIZ
     node_rviz = Node(
@@ -78,5 +84,6 @@ def generate_launch_description():
         node_demo,
         node_rviz,
         node_robot_state_publisher,
-        node_joint_state_publisher_gui
+        # node_trajectory,
+        # node_joint_state_publisher_gui
     ])
