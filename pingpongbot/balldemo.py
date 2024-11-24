@@ -38,11 +38,11 @@ class DemoNode(Node):
             MarkerArray, '/visualization_marker_array', quality)
 
         # Initialize the ball position, velocity, set the acceleration.
-        self.radius = 0.1
+        self.radius = 0.02
 
         self.p = np.array([0.0, 0.0, self.radius])
-        self.v = np.array([1.0, 0.1,  5.0       ])
-        self.a = np.array([0.0, 0.0, -9.81      ])
+        self.v = np.array([0, 0, 0])
+        self.a = np.array([0.0, 0.0, -9.81])
 
         # Create the sphere marker.
         diam        = 2 * self.radius
