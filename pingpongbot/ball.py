@@ -51,7 +51,7 @@ class DemoNode(Node):
         self.radius = 0.02
         self.collision_tol = 0.02
 
-        self.p = np.array([0.8, 0.3, 0.65])
+        self.p = np.array([0.8, 0.8, 0.8])
         self.v = np.array([0.0, 0.0, 0.0])
         self.a = np.array([0.0, 0.0, 0.0])
 
@@ -143,8 +143,6 @@ class DemoNode(Node):
         abs_pos_diff = abs(self.p - self.tip_pos)
         tolerance_arr = np.ones(3) * (self.radius + self.collision_tol)
         result = np.less(abs_pos_diff, tolerance_arr)
-        print(result)
-
         return np.equal(np.all(result), True)
 
 #
@@ -153,7 +151,7 @@ class DemoNode(Node):
 def main(args=None):
     # Initialize ROS and the demo node (100Hz).
     rclpy.init(args=args)
-    node = DemoNode('hitballdemo', 100)
+    node = DemoNode('ball', 100)
 
     # Run until interrupted.
     rclpy.spin(node)

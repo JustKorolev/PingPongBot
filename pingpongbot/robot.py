@@ -32,6 +32,18 @@ class Trajectory():
         self.p0 = self.home_p
         self.R0 = self.home_R
 
+        # Swing back variables
+        self.swing_back_time = 2
+        self.R_swing_back = R_from_RPY(0, 0, 0)
+        self.swing_rot_axis_array, self.swing_rot_angle = axisangle_from_R(self.R_swing_back - self.home_R)
+        self.swing_rot_axis = nxyz(self.swing_rot_axis_array[0], self.swing_rot_axis_array[1], self.swing_rot_axis_array[2])
+
+        # Swing variables
+        self.hit_time = 2
+        self.return_time = 2
+
+
+
 
         self.qd = self.q0
         self.pd = self.p0
@@ -51,45 +63,33 @@ class Trajectory():
                 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
     def evaluate(self, t, dt):
-
-        # CONSTANTS
-        swing_back_time = 10.0
-
+        # TODO: change to whatever it should be dynamically
         # Desired hit position
-        pd_f = np.array([0.8, 0.8, 0.8])
-        swing_back_pd = pd_f - np.array([0, 0.5, 0.15])
+        ball_p = np.array([0.8, 0.8, 0.8])
+        # Desired swing back position
+        swing_back_pd = ball_p - np.array([0, 1, 0.15])
+        desired_hit_velocity = np.array([0, 1, 0])
 
         # Swing back sequence
-        if t < swing_back_time:
-            pd, vd = spline(t, swing_back_time, self.home_p, swing_back_pd,
-                            np.zeros(3), np.array([1, 1, 1]))
+        if t < self.swing_back_time:
+            pd, vd = spline(t, self.swing_back_time, self.home_p, swing_back_pd,
+                            np.zeros(3), np.zeros(3))
 
-            Rd = self.R0
-            wd = np.zeros(3)
-            print(Rd)
+        # Hit sequence
+        elif t < self.swing_back_time + self.hit_time:
+            pd, vd = spline(t - self.swing_back_time, self.hit_time,
+                            swing_back_pd, ball_p, np.zeros(3), desired_hit_velocity)
+
+        # Return home sequence
+        elif t < self.swing_back_time + self.hit_time + self.return_time:
+            pd, vd = spline(t - (self.swing_back_time + self.hit_time), self.return_time,
+                            ball_p, self.home_p, desired_hit_velocity, np.zeros(3))
 
 
-        # elif t < 3.0:
-        #     s = t / 3.0
-        #     pd = self.p0 + (self.pright - self.p0) * s
-        #     vd = (self.pright - self.p0) / 3.0
+        # TODO: TEMPORARY UNCHANGING ROTATION -- CHANGE
+        Rd = self.R0
+        wd = np.zeros(3)
 
-        #     Rd = Reye()
-        #     wd = np.zeros(3)
-        # else:
-        #     T = 5.0
-        #     t0 = 3.0
-
-        #     s = np.cos(2 * np.pi * (t - t0) / T)
-        #     sdot = -2 * np.pi / T * np.sin(2 * np.pi * (t - t0) / T)
-
-        #     pd = np.array([-0.3 * s, 0.5, 0.5 - 0.35 * s ** 2])
-        #     vd = np.array([-0.3 * sdot, 0.0, -0.7 * s * sdot])
-
-        #     alpha = np.pi / 4 * (1 - s)
-        #     alphadot = -np.pi / 4 * sdot
-        #     Rd = Rotx(-alpha) @ Roty(-alpha)
-        #     wd = -nx() * alphadot - Rotx(-alpha) @ ny() * alphadot
 
         qdlast = self.qd
         pdlast = self.pd

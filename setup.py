@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'balldemo = pingpongbot.balldemo:main',
+            'ball = pingpongbot.ball:main',
             'robot = pingpongbot.robot:main'
         ],
     },
