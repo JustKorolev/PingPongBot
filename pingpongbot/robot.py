@@ -1,5 +1,6 @@
 import rclpy
 import numpy as np
+import random
 
 from math import pi, sin, cos, acos, atan2, sqrt, fmod, exp
 
@@ -11,7 +12,7 @@ from hw5code.TrajectoryUtils    import *
 # Grab the general fkin from HW6 P1.
 from hw6code.KinematicChain     import KinematicChain
  # Import the format for the condition number message
-from geometry_msgs.msg import Pose, Vector3
+from geometry_msgs.msg import Pose, Vector3, Point
 
 #
 # Trajectory Class
@@ -33,14 +34,15 @@ class Trajectory():
         self.R0 = self.home_R
 
         # Swing back variables
-        self.swing_back_time = 1
+        self.swing_back_time = 2
         self.R_swing_back = R_from_RPY(0, 0, 0)
         self.swing_rot_axis_array, self.swing_rot_angle = axisangle_from_R(self.R_swing_back - self.home_R)
         self.swing_rot_axis = nxyz(self.swing_rot_axis_array[0], self.swing_rot_axis_array[1], self.swing_rot_axis_array[2])
 
         # Swing variables
-        self.hit_time = 0.5
-        self.return_time = 0.7
+        self.hit_time = 1.5
+        self.return_time = 1.5
+        self.hit_pos = np.zeros(3)
 
         self.qd = self.q0
         self.pd = self.p0
@@ -56,6 +58,11 @@ class Trajectory():
         self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 10)
         self.tip_vel_pub = node.create_publisher(Vector3, "/tip_vel", 10)
 
+        # Subscribing
+        node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 10)
+
+        # Subscription variables
+        self.ball_pos = np.zeros(3)
 
 
     def jointnames(self):
@@ -65,27 +72,26 @@ class Trajectory():
     def evaluate(self, t, dt):
         # TODO: change to whatever it should be dynamically
         # Desired hit position
-        ball_p = np.array([-0.4, 0.4, 0.4])
         # Desired swing back position
-        swing_back_pd = ball_p - np.array([0, 1, 0.15])
-        desired_hit_velocity = np.array([1, 1, 0])
+        swing_back_pd = self.ball_pos - np.array([0, 1, 0.15])
+        desired_hit_velocity = np.array([random.random() for _ in range(3)])
         cycle_time = self.swing_back_time + self.hit_time + self.return_time
-        t_cycle = fmod(t, cycle_time)
 
         # Swing back sequence
-        if t_cycle < self.swing_back_time:
-            pd, vd = spline(t_cycle, self.swing_back_time, self.home_p, swing_back_pd,
+        if t < self.swing_back_time:
+            pd, vd = spline(t, self.swing_back_time, self.home_p, swing_back_pd,
                             np.zeros(3), np.zeros(3))
 
         # Hit sequence
-        elif t_cycle < self.swing_back_time + self.hit_time:
-            pd, vd = spline(t_cycle - self.swing_back_time, self.hit_time,
-                            swing_back_pd, ball_p, np.zeros(3), desired_hit_velocity)
+        elif t < self.swing_back_time + self.hit_time:
+            pd, vd = spline(t - self.swing_back_time, self.hit_time,
+                            swing_back_pd, self.ball_pos, np.zeros(3), desired_hit_velocity)
+            self.hit_pos = self.ball_pos
 
         # Return home sequence
-        elif t_cycle < self.swing_back_time + self.hit_time + self.return_time:
-            pd, vd = spline(t_cycle - (self.swing_back_time + self.hit_time), self.return_time,
-                            ball_p, self.home_p, desired_hit_velocity, np.zeros(3))
+        elif t < self.swing_back_time + self.hit_time + self.return_time:
+            pd, vd = spline(t - (self.swing_back_time + self.hit_time), self.return_time,
+                            self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
 
 
 
@@ -115,7 +121,7 @@ class Trajectory():
         qddot = jac_p_pinv @ adjusted_vd
         qsdot = jac_s_pinv @ adjusted_wd
         qddot = jac_p_pinv @ vd +\
-                    (np.eye(N) - jac_p_pinv @ jac_p) @ qsdot
+            (np.eye(N) - jac_p_pinv @ jac_p) @ qsdot
 
 
         # WORKED POORLY -----------------------------------
@@ -147,11 +153,9 @@ class Trajectory():
 
     # Takes a numpy array position and R matrix to produce a ROS pose msg
     def create_pose(self, position, orientation):
-        x, y, z = list(position)
-        qx, qy, qz, qw = quat_from_R(orientation)
         pose = Pose()
-        pose.position = Point(x=x, y=y, z=z)
-        pose.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
+        pose.position = Point_from_p(position)
+        pose.orientation = Quaternion_from_R(orientation)
         return pose
 
 
@@ -161,6 +165,9 @@ class Trajectory():
         vec3 = Vector3(x=vx, y=vy, z=vz)
         return vec3
 
+
+    def ball_pos_callback(self, pos):
+        self.ball_pos = p_from_Point(pos)
 
 
 

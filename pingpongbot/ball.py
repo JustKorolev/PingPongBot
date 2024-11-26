@@ -10,6 +10,7 @@
 
 import rclpy
 import numpy as np
+import random
 
 from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
@@ -35,8 +36,9 @@ class DemoNode(Node):
         # Prepare the publisher (latching for new subscribers).
         quality = QoSProfile(
             durability=DurabilityPolicy.TRANSIENT_LOCAL, depth=1)
-        self.pub = self.create_publisher(
-            MarkerArray, '/visualization_marker_array', quality)
+        self.marker_pub = self.create_publisher(MarkerArray,
+                                        '/visualization_marker_array', quality)
+        self.ball_pos_pub = self.create_publisher(Point, "/ball_pos", 10)
 
         # Subscribing
         self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 10)
@@ -51,7 +53,7 @@ class DemoNode(Node):
         self.radius = 0.02
         self.collision_tol = 0.02
 
-        self.p = np.array([-0.4, 0.4, 0.4])
+        self.p = self.generate_random_position()
         self.v = np.array([0.0, 0.0, 0.0])
         self.a = np.array([0.0, 0.0, 0.0])
 
@@ -124,7 +126,8 @@ class DemoNode(Node):
         # Update the message and publish.
         self.marker.header.stamp  = self.now().to_msg()
         self.marker.pose.position = Point_from_p(self.p)
-        self.pub.publish(self.markerarray)
+        self.marker_pub.publish(self.markerarray)
+        self.ball_pos_pub.publish(self.marker.pose.position)
 
 
     def tip_pose_callback(self, pose):
@@ -144,6 +147,13 @@ class DemoNode(Node):
         tolerance_arr = np.ones(3) * (self.radius + self.collision_tol)
         result = np.less(abs_pos_diff, tolerance_arr)
         return np.equal(np.all(result), True)
+
+
+    def generate_random_position(self):
+        x = random.uniform(-1, 1)
+        y = random.uniform(0, 1)
+        z = random.uniform(0, 1)
+        return np.array([x, y, z])
 
 #
 #  Main Code
