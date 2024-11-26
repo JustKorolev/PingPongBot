@@ -14,7 +14,7 @@ import numpy as np
 from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
 from rclpy.time                 import Duration
-from geometry_msgs.msg          import Point, Vector3, Quaternion
+from geometry_msgs.msg          import Pose, Vector3, Quaternion
 from std_msgs.msg               import ColorRGBA
 from visualization_msgs.msg     import Marker
 from visualization_msgs.msg     import MarkerArray
@@ -28,6 +28,7 @@ from pingpongbot.utils.TransformHelpers     import *
 class DemoNode(Node):
     # Initialization.
     def __init__(self, name, rate):
+
         # Initialize the node, naming it as specified
         super().__init__(name)
 
@@ -37,10 +38,20 @@ class DemoNode(Node):
         self.pub = self.create_publisher(
             MarkerArray, '/visualization_marker_array', quality)
 
+        # Subscribing
+        self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 10)
+        self.create_subscription(Vector3, "/tip_vel", self.tip_vel_callback, 10)
+
+        # Subscription variables
+        self.tip_pos = np.zeros(3)
+        self.tip_vel = np.zeros(3)
+        self.tip_R = Reye()
+
         # Initialize the ball position, velocity, set the acceleration.
         self.radius = 0.02
+        self.collision_tol = 0.02
 
-        self.p = np.array([0.8, 0.8, 0.8])
+        self.p = np.array([0.8, 0.3, 0.65])
         self.v = np.array([0.0, 0.0, 0.0])
         self.a = np.array([0.0, 0.0, 0.0])
 
@@ -92,11 +103,17 @@ class DemoNode(Node):
         self.v += self.dt * self.a
         self.p += self.dt * self.v
 
-        # Check for a bounce - not the change in x velocity is non-physical.
+        # Check for a bounce - note the change in x velocity is non-physical.
         if self.p[2] < self.radius:
             self.p[2] = self.radius + (self.radius - self.p[2])
             self.v[2] *= -1.0
             self.v[0] *= -1.0   # Change x just for the fun of it!
+
+        # Check for collision with paddle
+        if self.check_hit():
+            n = abs(self.tip_R[:, 1])
+            v_rel = self.v - self.tip_vel
+            self.v = self.v - 2 * (v_rel @ n) * n
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.
@@ -109,6 +126,26 @@ class DemoNode(Node):
         self.marker.pose.position = Point_from_p(self.p)
         self.pub.publish(self.markerarray)
 
+
+    def tip_pose_callback(self, pose):
+        pos_array = np.array([pose.position.x, pose.position.y, pose.position.z])
+        R = R_from_Quaternion(pose.orientation)
+        self.tip_pos = pos_array
+        self.tip_R = R
+
+
+    def tip_vel_callback(self, vel):
+        vel_array = np.array([vel.x, vel.y, vel.z])
+        self.tip_vel = vel_array
+
+
+    def check_hit(self):
+        abs_pos_diff = abs(self.p - self.tip_pos)
+        tolerance_arr = np.ones(3) * (self.radius + self.collision_tol)
+        result = np.less(abs_pos_diff, tolerance_arr)
+        print(result)
+
+        return np.equal(np.all(result), True)
 
 #
 #  Main Code

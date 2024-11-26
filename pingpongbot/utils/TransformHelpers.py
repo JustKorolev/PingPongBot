@@ -54,7 +54,7 @@
                     Rmid(R0,R1)         Return rotation halfway  between R0,R1
 
    Interpolation    pinter(p0,p1,s)     Positon  factor s between p0,p1
-                    Rinter(R0,R1,s)     Rotation factor s between R0,R1 
+                    Rinter(R0,R1,s)     Rotation factor s between R0,R1
                     vinter(p0,p1,sdot)  Linear  velocity for pinter(p0,p1,s)
                     winter(R0,R1,sdot)  Angular velocity for Rinter(R0,R1,s)
 
@@ -128,7 +128,7 @@ def ny():
     return nxyz(0.0, 1.0, 0.0)
 def nz():
     return nxyz(0.0, 0.0, 1.0)
-    
+
 def nxyz(x,y,z):
     return np.array([x,y,z]) / np.sqrt(x*x+y*y+z*z)
 
@@ -176,7 +176,7 @@ def Rinter(R0, R1, s):
     (axis, angle) = axisangle_from_R(R0.T @ R1)
     return R0 @ Rotn(axis, s*angle)
 
-def winter(R0, R1, sdot): 
+def winter(R0, R1, sdot):
     (axis, angle) = axisangle_from_R(R0.T @ R1)
     return R0 @ axis * angle * sdot
 

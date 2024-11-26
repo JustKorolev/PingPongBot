@@ -11,7 +11,7 @@ from hw5code.TrajectoryUtils    import *
 # Grab the general fkin from HW6 P1.
 from hw6code.KinematicChain     import KinematicChain
  # Import the format for the condition number message
-from std_msgs.msg import Float64
+from geometry_msgs.msg import Pose, Vector3
 
 #
 # Trajectory Class
@@ -19,10 +19,12 @@ from std_msgs.msg import Float64
 class Trajectory():
     # Initialization
     def __init__(self, node):
+
         self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
-        
+
         # Our home joint angles
         self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
+        self.q_centers = [-pi/2, -pi/2, 0, -pi/2, 0, 0]
 
         # Initial position
         self.q0 = self.home_q
@@ -35,7 +37,13 @@ class Trajectory():
         self.pd = self.p0
         self.Rd = self.R0
 
-        self.lam = 0
+        self.lam = 20
+        self.lam_second = 10
+
+        # Publishing
+        self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 10)
+        self.tip_vel_pub = node.create_publisher(Vector3, "/tip_vel", 10)
+
 
 
     def jointnames(self):
@@ -45,7 +53,7 @@ class Trajectory():
     def evaluate(self, t, dt):
 
         # CONSTANTS
-        swing_back_time = 4.0
+        swing_back_time = 10.0
 
         # Desired hit position
         pd_f = np.array([0.8, 0.8, 0.8])
@@ -54,17 +62,14 @@ class Trajectory():
         # Swing back sequence
         if t < swing_back_time:
             pd, vd = spline(t, swing_back_time, self.home_p, swing_back_pd,
-                            np.zeros(3), np.zeros(3))
+                            np.zeros(3), np.array([1, 1, 1]))
 
             Rd = self.R0
             wd = np.zeros(3)
-        else:
-            pass
+            print(Rd)
 
 
-
-
-        # if t < 3.0:
+        # elif t < 3.0:
         #     s = t / 3.0
         #     pd = self.p0 + (self.pright - self.p0) * s
         #     vd = (self.pright - self.p0) / 3.0
@@ -90,14 +95,21 @@ class Trajectory():
         pdlast = self.pd
         Rdlast = self.Rd
 
-        (p, R, Jv, Jw) = self.chain.fkin(qdlast)
+        (pr, Rr, Jv, Jw) = self.chain.fkin(qdlast)
+        error_r = eR(Rdlast, Rr)
+        error_p = ep(pdlast, pr)
 
-        J = np.vstack((Jv, Jw))
+        adjusted_vd = vd + (self.lam * error_p)
+        adjusted_wd = wd + (self.lam * error_r)
+        combined_v_vec = np.concatenate((adjusted_vd, adjusted_wd))
 
-        vr = vd + self.lam * ep(pdlast, p)
-        wr = wd + self.lam * eR(Rdlast, R)
-        xrdot = np.concatenate((vr, wr))
-        qddot = np.linalg.pinv(J) @ xrdot
+        jac = np.vstack((Jv, Jw))
+        jac_p_pinv = np.linalg.pinv(jac)
+
+        N = jac.shape[1]
+        qsdot = self.lam_second * (self.q_centers - qdlast)
+        qddot = jac_p_pinv @ combined_v_vec +\
+                    (np.eye(N) - jac_p_pinv @ jac) @ qsdot
 
         qd = qdlast + dt * qddot
 
@@ -105,7 +117,33 @@ class Trajectory():
         self.pd = pd
         self.Rd = Rd
 
+        # Publishing
+        self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
+        self.tip_vel_msg = self.create_vel_vec(adjusted_vd)
+        self.tip_pose_pub.publish(self.tip_pose_msg)
+        self.tip_vel_pub.publish(self.tip_vel_msg)
+
         return (qd, qddot, pd, vd, Rd, wd)
+
+
+    # Takes a numpy array position and R matrix to produce a ROS pose msg
+    def create_pose(self, position, orientation):
+        x, y, z = list(position)
+        qx, qy, qz, qw = quat_from_R(orientation)
+        pose = Pose()
+        pose.position = Point(x=x, y=y, z=z)
+        pose.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
+        return pose
+
+
+    # Takes a numpy array velocity and returns a ROS vec3 message
+    def create_vel_vec(self, velocity):
+        vx, vy, vz = list(velocity)
+        vec3 = Vector3(x=vx, y=vy, z=vz)
+        return vec3
+
+
+
 
 def main(args=None):
     rclpy.init(args=args)
