@@ -51,7 +51,7 @@ class DemoNode(Node):
         self.radius = 0.02
         self.collision_tol = 0.02
 
-        self.p = np.array([0.8, 0.8, 0.8])
+        self.p = np.array([-0.4, 0.4, 0.4])
         self.v = np.array([0.0, 0.0, 0.0])
         self.a = np.array([0.0, 0.0, 0.0])
 
