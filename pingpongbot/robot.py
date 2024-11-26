@@ -42,9 +42,6 @@ class Trajectory():
         self.hit_time = 2
         self.return_time = 2
 
-
-
-
         self.qd = self.q0
         self.pd = self.p0
         self.Rd = self.R0
@@ -69,21 +66,24 @@ class Trajectory():
         # Desired swing back position
         swing_back_pd = ball_p - np.array([0, 1, 0.15])
         desired_hit_velocity = np.array([0, 1, 0])
+        cycle_time = self.swing_back_time + self.hit_time + self.return_time
+        t_cycle = fmod(t, cycle_time)
 
         # Swing back sequence
-        if t < self.swing_back_time:
-            pd, vd = spline(t, self.swing_back_time, self.home_p, swing_back_pd,
+        if t_cycle < self.swing_back_time:
+            pd, vd = spline(t_cycle, self.swing_back_time, self.home_p, swing_back_pd,
                             np.zeros(3), np.zeros(3))
 
         # Hit sequence
-        elif t < self.swing_back_time + self.hit_time:
-            pd, vd = spline(t - self.swing_back_time, self.hit_time,
+        elif t_cycle < self.swing_back_time + self.hit_time:
+            pd, vd = spline(t_cycle - self.swing_back_time, self.hit_time,
                             swing_back_pd, ball_p, np.zeros(3), desired_hit_velocity)
 
         # Return home sequence
-        elif t < self.swing_back_time + self.hit_time + self.return_time:
-            pd, vd = spline(t - (self.swing_back_time + self.hit_time), self.return_time,
+        elif t_cycle < self.swing_back_time + self.hit_time + self.return_time:
+            pd, vd = spline(t_cycle - (self.swing_back_time + self.hit_time), self.return_time,
                             ball_p, self.home_p, desired_hit_velocity, np.zeros(3))
+        
 
 
         # TODO: TEMPORARY UNCHANGING ROTATION -- CHANGE
