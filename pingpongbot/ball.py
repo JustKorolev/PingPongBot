@@ -51,7 +51,8 @@ class DemoNode(Node):
 
         # Initialize the ball position, velocity, set the acceleration.
         self.radius = 0.02
-        self.collision_tol = 0.02
+        self.collision_tol = 0.005
+        self.hit_timeout = 0
 
         self.p = self.generate_random_position()
         self.v = np.array([0.0, 0.0, 0.0])
@@ -112,10 +113,15 @@ class DemoNode(Node):
             self.v[0] *= -1.0   # Change x just for the fun of it!
 
         # Check for collision with paddle
-        if self.check_hit():
-            n = abs(self.tip_R[:, 1])
-            v_rel = self.v - self.tip_vel
+        if self.check_hit() and self.hit_timeout <= 0:
+            n = self.tip_R[:, 1]
+            print(n)
+            v_rel = self.tip_vel - self.v
             self.v = self.v - 2 * (v_rel @ n) * n
+            self.hit_timeout = 1
+
+        # Subtract from hit timeout
+        self.hit_timeout -= self.dt
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.

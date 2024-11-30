@@ -10,7 +10,7 @@ from hw5code.TransformHelpers   import *
 from hw5code.TrajectoryUtils    import *
 
 # Grab the general fkin from HW6 P1.
-from hw6code.KinematicChain     import KinematicChain
+from pingpongbot.utils.KinematicChain     import KinematicChain
  # Import the format for the condition number message
 from geometry_msgs.msg import Pose, Vector3, Point
 
@@ -25,7 +25,7 @@ class Trajectory():
 
         # Our home joint angles
         self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
-        self.q_centers = [-pi/2, -pi/2, 0, -pi/2, 0, 0]
+        self.q_centers = np.array([-pi/2, -pi/2, 0, -pi/2, 0, 0])
 
         # Initial position
         self.q0 = self.home_q
@@ -38,6 +38,7 @@ class Trajectory():
         self.R_swing_back = R_from_RPY(0, 0, 0)
         self.swing_rot_axis_array, self.swing_rot_angle = axisangle_from_R(self.R_swing_back - self.home_R)
         self.swing_rot_axis = nxyz(self.swing_rot_axis_array[0], self.swing_rot_axis_array[1], self.swing_rot_axis_array[2])
+        self.swing_back_q = None
 
         # Swing variables
         self.hit_time = 1.5
@@ -61,8 +62,8 @@ class Trajectory():
         # Subscribing
         node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 10)
 
-        # Subscription variables
-        self.ball_pos = np.zeros(3)
+        # Subscription variables #TODO FIX THIS TO DEFAULT
+        self.ball_pos = np.array([0.8, 0.8, 0.8])
 
 
     def jointnames(self):
@@ -78,27 +79,33 @@ class Trajectory():
     def evaluate(self, t, dt):
         pd = self.pd
         cycle_time = self.swing_back_time + self.hit_time + self.return_time
-        swing_back_pd = self.ball_pos - np.array([0, 1, 0.15])  
-        desired_hit_velocity = np.array([0.5, 0.5, 0.5]) 
+        swing_back_pd = self.ball_pos - np.array([0, 1, 0.15])
+        desired_hit_velocity = np.array([0.5, 0.5, 0.5])
 
-        # Swing back phase
-        if t < self.swing_back_time:
-            pd, vd = spline(t, self.swing_back_time, self.home_p, swing_back_pd,
-                            np.zeros(3), np.zeros(3))
+        # Swing back sequence
+        # if t < self.swing_back_time:
+        #     pd, vd = spline(t, self.swing_back_time, self.home_p, swing_back_pd,
+        #                     np.zeros(3), np.zeros(3))
+        #     self.swing_back_q = self.qd
 
-        # Hit phase
-        elif t < self.swing_back_time + self.hit_time:
-            pd, vd = spline(t - self.swing_back_time, self.hit_time,
-                            swing_back_pd, self.ball_pos, np.zeros(3), desired_hit_velocity)
+        # Hit sequence
+        if t < self.hit_time:
+            qf = self.newton_raphson(self.ball_pos, self.home_q) # TODO: want to do this only once
+            qd, qddot = spline(t, self.hit_time, self.home_q, qf, np.zeros(6), np.ones(6))
             self.hit_pos = self.ball_pos
 
-        # Return home phase
-        elif t < cycle_time:
-            pd, vd = spline(t - (self.swing_back_time + self.hit_time), self.return_time,
-                            self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
+            # FOR TESTING
+            pd, Rd, Jv, _ = self.chain.fkin(qd)
+            vd = np.zeros(3)
 
-        # Default rotation
-        Rd = self.R0
+        # Return home sequence
+        # elif t < self.hit_time + self.return_time:
+        #     pd, vd = spline(t - (self.hit_time), self.return_time,
+        #                     self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
+
+
+
+        # TODO: TEMPORARY UNCHANGING ROTATION -- CHANGE
         wd = np.zeros(3)
 
         # Kinematics
@@ -106,8 +113,8 @@ class Trajectory():
         pdlast = self.pd
         Rdlast = self.Rd
         pr, Rr, Jv, Jw = self.chain.fkin(qdlast)
-        
-        
+
+
         #print("Desired Rotation Matrix:\n", Rd)
 
         # Position and rotation errors
@@ -131,7 +138,8 @@ class Trajectory():
         qddot_secondary = self.lam_second * q_centers_error
         N = J_adjusted.shape[1]
 
-        qddot = qddot_main + (np.eye(N) - J_pinv @ J_adjusted) @ qddot_secondary
+        if not (t < self.hit_time):
+            qddot = qddot_main + (np.eye(N) - J_pinv @ J_adjusted) @ qddot_secondary
         qd = qdlast + dt * qddot
 
         # Update state
@@ -139,12 +147,45 @@ class Trajectory():
         self.pd = pd
         self.Rd = Rd
 
-        # Publish tip pose and velocity
-        self.tip_pose_pub.publish(self.create_pose(self.pd, self.Rd))
-        self.tip_vel_pub.publish(self.create_vel_vec(adjusted_vd))
+        # Publishing
+        self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
+        self.tip_vel_msg = self.create_vel_vec(adjusted_vd)
+        self.tip_pose_pub.publish(self.tip_pose_msg)
+        self.tip_vel_pub.publish(self.tip_vel_msg)
 
         return (qd, qddot, pd, vd, Rd, wd)
 
+    # Newton Raphson
+    def newton_raphson(self, pgoal, q0):
+
+        # Collect the distance to goal and change in q every step!
+        pdistance = []
+        qstepsize = []
+
+        # Number of steps to try.
+        N = 40
+
+        # Setting initial q
+        q = q0
+
+        # IMPLEMENT THE NEWTON-RAPHSON ALGORITHM!
+        for _ in range(N):
+            (pr, _, Jv, Jw) = self.chain.fkin(q)
+            jac = Jv #np.vstack((Jv, Jw))
+            # TODO INSERT MODIFIED JACOBIAN HERE, ADD DESIRED ORIENTATION
+            q_new = q + np.linalg.pinv(jac) @ (pgoal - pr)
+            qstepsize.append(np.linalg.norm(q_new - q))
+            pdistance_curr = np.linalg.norm(pgoal - pr)
+            pdistance.append(pdistance_curr)
+            q = q_new
+
+        # Unwrap
+        for i in range(len(q)):
+            q[i] = fmod(q[i], 2*pi)
+
+        return q
+
+    # Takes a numpy array position and R matrix to produce a ROS pose msg
     def create_pose(self, position, orientation):
         pose = Pose()
         pose.position = Point_from_p(position)
