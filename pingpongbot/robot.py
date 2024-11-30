@@ -5,9 +5,9 @@ import random
 from math import pi, sin, cos, acos, atan2, sqrt, fmod, exp
 
 # Grab the utilities
-from hw5code.GeneratorNode      import GeneratorNode
-from hw5code.TransformHelpers   import *
-from hw5code.TrajectoryUtils    import *
+from pingpongbot.utils.GeneratorNode      import GeneratorNode
+from pingpongbot.utils.TransformHelpers   import *
+from pingpongbot.utils.TrajectoryUtils    import *
 
 # Grab the general fkin from HW6 P1.
 from pingpongbot.utils.KinematicChain     import KinematicChain
@@ -29,7 +29,7 @@ class Trajectory():
 
         # Initial position
         self.q0 = self.home_q
-        self.home_p, self.home_R, _, _  = self.chain.fkin(self.q0)
+        self.home_p, self.home_R, _, _  = self.chain.fkin(self.home_q)
         self.p0 = self.home_p
         self.R0 = self.home_R
 
@@ -44,6 +44,8 @@ class Trajectory():
         self.hit_time = 1.5
         self.return_time = 1.5
         self.hit_pos = np.zeros(3)
+        self.hit_rotation = Reye()
+        self.hit_q = np.zeros(6)
 
         self.qd = self.q0
         self.pd = self.p0
@@ -56,13 +58,13 @@ class Trajectory():
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
 
         # Publishing
-        self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 10)
-        self.tip_vel_pub = node.create_publisher(Vector3, "/tip_vel", 10)
+        self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 100)
+        self.tip_vel_pub = node.create_publisher(Vector3, "/tip_vel", 100)
 
         # Subscribing
         node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 10)
 
-        # Subscription variables #TODO FIX THIS TO DEFAULT
+        # Subscription variables
         self.ball_pos = np.array([0.8, 0.8, 0.8])
 
 
@@ -78,9 +80,7 @@ class Trajectory():
 
     def evaluate(self, t, dt):
         pd = self.pd
-        cycle_time = self.swing_back_time + self.hit_time + self.return_time
-        swing_back_pd = self.ball_pos - np.array([0, 1, 0.15])
-        desired_hit_velocity = np.array([0.5, 0.5, 0.5])
+        desired_hit_velocity = np.array([1, 1, 0])
 
         # Swing back sequence
         # if t < self.swing_back_time:
@@ -90,24 +90,72 @@ class Trajectory():
 
         # Hit sequence
         if t < self.hit_time:
-            qf = self.newton_raphson(self.ball_pos, self.home_q) # TODO: want to do this only once
-            qd, qddot = spline(t, self.hit_time, self.home_q, qf, np.zeros(6), np.ones(6))
+            # TODO: want to do this only once
+            # ______________________________________
+            Rf = R_from_RPY(pi/4, 0, 0) # TODO: TEMPORARY FOR TESTING
+            self.hit_rotation = Rf
+            R_rel = self.home_R.T @ Rf
+            theta = np.arccos((np.trace(R_rel) - 1) / 2)
+            rot_axis = np.array([
+                R_rel[2, 1] - R_rel[1, 2],
+                R_rel[0, 2] - R_rel[2, 0],
+                R_rel[1, 0] - R_rel[0, 1]
+                ]) / (2 * np.sin(theta))
+
+            if t < 0.01: # TODO: TENTATIVE FIX
+                self.hit_q = self.newton_raphson(self.ball_pos, self.home_q)
+            _, _, Jvf, _ = self.chain.fkin(self.hit_q)
+            qdotf = np.linalg.pinv(Jvf) @ desired_hit_velocity
+            #____________________________________________________
+
+            # ROTATION CALCULATION
+            sr, srdot = spline(t, self.hit_time, 0, 1, 0, 0)
+            Rot = rodrigues_formula(rot_axis, theta * sr)
+            Rd = self.home_R @ Rot
+            wd = self.home_R @ (rot_axis * srdot)
+
+            # Pure position manipulation
+            qd_hit, qddot_hit = spline(t, self.hit_time, self.home_q, self.hit_q, np.zeros(6), qdotf)
+
+            pd, _, Jv, _ = self.chain.fkin(qd_hit)
+            vd = Jv @ qddot_hit
+
             self.hit_pos = self.ball_pos
 
-            # FOR TESTING
-            pd, Rd, Jv, _ = self.chain.fkin(qd)
-            vd = np.zeros(3)
-
         # Return home sequence
-        # elif t < self.hit_time + self.return_time:
-        #     pd, vd = spline(t - (self.hit_time), self.return_time,
-        #                     self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
+        elif t < self.hit_time + self.return_time:
+            #TODO: DO ONLY ONCE
+            # _____________________
+
+            R_rel = self.hit_rotation.T @ self.home_R
+            theta = np.arccos((np.trace(R_rel) - 1) / 2) % 2*pi
+            rot_axis = np.array([
+                R_rel[2, 1] - R_rel[1, 2],
+                R_rel[0, 2] - R_rel[2, 0],
+                R_rel[1, 0] - R_rel[0, 1]
+                ]) / (2 * np.sin(theta))
+            #________________________
+
+
+            # POSITION CALCULATION
+            pd, vd = spline(t - self.hit_time, self.return_time,
+                            self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
+
+            # ROTATION CALCULATION
+
+            sr, srdot = spline(t - self.hit_time, self.return_time, 0, 1, 0, 0)
+            Rot = rodrigues_formula(rot_axis, theta * sr)
+            Rd = self.home_R @ Rot
+            wd = self.home_R @ (rot_axis * srdot)
+        else:
+            pd = self.pd
+            vd = np.zeros(3)
+            Rd = self.Rd
+            wd = np.zeros(3)
 
 
 
         # TODO: TEMPORARY UNCHANGING ROTATION -- CHANGE
-        wd = np.zeros(3)
-
         # Kinematics
         qdlast = self.qd
         pdlast = self.pd
@@ -123,23 +171,32 @@ class Trajectory():
 
         # Adjusted velocities
         adjusted_vd = vd + (self.lam * error_p)
-        adjusted_wd = (wd + (self.lam * error_r))[:2]
+        # adjusted_wd = (wd + (self.lam * error_r))[:2]
+        adjusted_wd = (wd + (self.lam * error_r))
         combined_vwd = np.concatenate([adjusted_vd, adjusted_wd])
 
         # Jacobian adjustments
-        J_adjusted = self.adjust_jacobian(Jv, Jw)
+        # J_adjusted = self.adjust_jacobian(Jv, Jw)
+        J_adjusted = np.vstack([Jv, Jw])
+        J_p = J_adjusted[:3, :]
+        J_s = J_adjusted[3:, :]
+        J_pinv_p = np.linalg.pinv(J_p)
+        J_pinv_s = np.linalg.pinv(J_s)
         J_pinv = np.linalg.pinv(J_adjusted)
 
         # Primary task
-        qddot_main = J_pinv @ combined_vwd
+        qddot_main = J_pinv_p @ adjusted_vd
 
         # Secondary task
-        q_centers_error = self.q_centers - qdlast
-        qddot_secondary = self.lam_second * q_centers_error
+        qddot_secondary = J_pinv_s @ adjusted_wd
         N = J_adjusted.shape[1]
 
         if not (t < self.hit_time):
-            qddot = qddot_main + (np.eye(N) - J_pinv @ J_adjusted) @ qddot_secondary
+            qddot = qddot_main + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
+        else:
+            qddot = J_pinv @ combined_vwd
+            # qddot = qddot_hit + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
+
         qd = qdlast + dt * qddot
 
         # Update state
@@ -163,7 +220,7 @@ class Trajectory():
         qstepsize = []
 
         # Number of steps to try.
-        N = 40
+        N = 100
 
         # Setting initial q
         q = q0
@@ -203,7 +260,7 @@ class Trajectory():
 
 def main(args=None):
     rclpy.init(args=args)
-    generator = GeneratorNode('generator', 100, Trajectory)
+    generator = GeneratorNode('generator', 200, Trajectory)
     generator.spin()
     generator.shutdown()
     rclpy.shutdown()

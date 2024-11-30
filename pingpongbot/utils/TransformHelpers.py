@@ -353,6 +353,25 @@ def Transform_from_T(T):
     return Transform(translation = Vector3_from_p(p_from_T(T)),
                      rotation    = Quaternion_from_R(R_from_T(T)))
 
+def rodrigues_formula(axis, angle):
+    """
+    Computes the rotation matrix using Rodrigues' formula.
+    """
+    ux, uy, uz = axis
+    c = np.cos(angle)
+    s = np.sin(angle)
+
+    # Skew-symmetric matrix of axis
+    u_cross = np.array([
+        [0, -uz, uy],
+        [uz, 0, -ux],
+        [-uy, ux, 0]
+    ])
+
+    # Rodrigues' formula
+    R = np.eye(3) + s * u_cross + (1 - c) * (u_cross @ u_cross)
+    return R
+
 
 #
 #   Main Test Code

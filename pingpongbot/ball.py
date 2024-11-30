@@ -41,8 +41,8 @@ class DemoNode(Node):
         self.ball_pos_pub = self.create_publisher(Point, "/ball_pos", 10)
 
         # Subscribing
-        self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 10)
-        self.create_subscription(Vector3, "/tip_vel", self.tip_vel_callback, 10)
+        self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 100)
+        self.create_subscription(Vector3, "/tip_vel", self.tip_vel_callback, 100)
 
         # Subscription variables
         self.tip_pos = np.zeros(3)
@@ -51,7 +51,7 @@ class DemoNode(Node):
 
         # Initialize the ball position, velocity, set the acceleration.
         self.radius = 0.02
-        self.collision_tol = 0.005
+        self.collision_tol = 0
         self.hit_timeout = 0
 
         self.p = self.generate_random_position()
@@ -115,10 +115,11 @@ class DemoNode(Node):
         # Check for collision with paddle
         if self.check_hit() and self.hit_timeout <= 0:
             n = self.tip_R[:, 1]
-            print(n)
-            v_rel = self.tip_vel - self.v
+            print(self.tip_vel)
+            v_rel = self.v - self.tip_vel
             self.v = self.v - 2 * (v_rel @ n) * n
-            self.hit_timeout = 1
+            print(self.v)
+            self.hit_timeout = 2
 
         # Subtract from hit timeout
         self.hit_timeout -= self.dt
@@ -157,8 +158,8 @@ class DemoNode(Node):
 
     def generate_random_position(self):
         x = random.uniform(-1, 1)
-        y = random.uniform(0, 1)
-        z = random.uniform(0, 1)
+        y = random.uniform(0.4, 1)
+        z = random.uniform(0.4, 1)
         return np.array([x, y, z])
 
 #
@@ -167,7 +168,7 @@ class DemoNode(Node):
 def main(args=None):
     # Initialize ROS and the demo node (100Hz).
     rclpy.init(args=args)
-    node = DemoNode('ball', 100)
+    node = DemoNode('ball', 1000)
 
     # Run until interrupted.
     rclpy.spin(node)
