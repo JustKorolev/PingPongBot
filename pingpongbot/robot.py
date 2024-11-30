@@ -49,8 +49,8 @@ class Trajectory():
         self.Rd = self.R0
 
         # Tuning constants
-        self.lam = 20
-        self.lam_second = 5
+        self.lam = 25
+        self.lam_second = 15
         self.gamma = 0.1
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
 
@@ -69,106 +69,95 @@ class Trajectory():
         return ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
-    def evaluate(self, t, dt):
-        # TODO: change to whatever it should be dynamically
-        # Desired hit position
-        # Desired swing back position
-        swing_back_pd = self.ball_pos - np.array([0, 1, 0.15])
-        desired_hit_velocity = np.array([random.random() for _ in range(3)])
-        cycle_time = self.swing_back_time + self.hit_time + self.return_time
+    def adjust_jacobian(self, Jv, Jw):
+        J_combined = np.vstack((Jv, Jw))
+        # Remove the last row
+        J_adjusted = J_combined[:-1, :]
+        return J_adjusted
 
-        # Swing back sequence
+    def evaluate(self, t, dt):
+        pd = self.pd
+        cycle_time = self.swing_back_time + self.hit_time + self.return_time
+        swing_back_pd = self.ball_pos - np.array([0, 1, 0.15])  
+        desired_hit_velocity = np.array([0.5, 0.5, 0.5]) 
+
+        # Swing back phase
         if t < self.swing_back_time:
             pd, vd = spline(t, self.swing_back_time, self.home_p, swing_back_pd,
                             np.zeros(3), np.zeros(3))
 
-        # Hit sequence
+        # Hit phase
         elif t < self.swing_back_time + self.hit_time:
             pd, vd = spline(t - self.swing_back_time, self.hit_time,
                             swing_back_pd, self.ball_pos, np.zeros(3), desired_hit_velocity)
             self.hit_pos = self.ball_pos
 
-        # Return home sequence
-        elif t < self.swing_back_time + self.hit_time + self.return_time:
+        # Return home phase
+        elif t < cycle_time:
             pd, vd = spline(t - (self.swing_back_time + self.hit_time), self.return_time,
                             self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
 
-
-
-        # TODO: TEMPORARY UNCHANGING ROTATION -- CHANGE
+        # Default rotation
         Rd = self.R0
         wd = np.zeros(3)
 
-
+        # Kinematics
         qdlast = self.qd
         pdlast = self.pd
         Rdlast = self.Rd
+        pr, Rr, Jv, Jw = self.chain.fkin(qdlast)
+        
+        
+        #print("Desired Rotation Matrix:\n", Rd)
 
-        (pr, Rr, Jv, Jw) = self.chain.fkin(qdlast)
-        error_r = eR(Rdlast, Rr)
+        # Position and rotation errors
         error_p = ep(pdlast, pr)
+        error_r = eR(Rdlast, Rr)
 
+        # Adjusted velocities
         adjusted_vd = vd + (self.lam * error_p)
-        adjusted_wd = wd + (self.lam * error_r)
+        adjusted_wd = (wd + (self.lam * error_r))[:2]
+        combined_vwd = np.concatenate([adjusted_vd, adjusted_wd])
 
-        # TREATING WD AS A SECONDARY TASK
-        jac_p = Jv
-        jac_s = Jw
-        jac_p_pinv = np.linalg.pinv(jac_p)
-        jac_s_pinv = np.linalg.pinv(jac_s)
+        # Jacobian adjustments
+        J_adjusted = self.adjust_jacobian(Jv, Jw)
+        J_pinv = np.linalg.pinv(J_adjusted)
 
-        N = jac_p.shape[1]
-        qddot = jac_p_pinv @ adjusted_vd
-        qsdot = jac_s_pinv @ adjusted_wd
-        qddot = jac_p_pinv @ vd +\
-            (np.eye(N) - jac_p_pinv @ jac_p) @ qsdot
+        # Primary task
+        qddot_main = J_pinv @ combined_vwd
 
+        # Secondary task
+        q_centers_error = self.q_centers - qdlast
+        qddot_secondary = self.lam_second * q_centers_error
+        N = J_adjusted.shape[1]
 
-        # WORKED POORLY -----------------------------------
-        # combined_v_vec = np.concatenate((adjusted_vd, adjusted_wd))
-
-        # jac = np.vstack((Jv, Jw))
-        # jac_p_pinv = np.linalg.pinv(jac)
-        # jac_winv = np.linalg.pinv(jac.T @ jac + np.diag(self.gamma_array)) @ jac.T
-
-        # N = jac.shape[1]
-        # qsdot = self.lam_second * (self.q_centers - qdlast)
-        # qddot = jac_p_pinv @ combined_v_vec +\
-        #             (np.eye(N) - jac_winv @ jac) @ qsdot
-
+        qddot = qddot_main + (np.eye(N) - J_pinv @ J_adjusted) @ qddot_secondary
         qd = qdlast + dt * qddot
 
+        # Update state
         self.qd = qd
         self.pd = pd
         self.Rd = Rd
 
-        # Publishing
-        self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
-        self.tip_vel_msg = self.create_vel_vec(adjusted_vd)
-        self.tip_pose_pub.publish(self.tip_pose_msg)
-        self.tip_vel_pub.publish(self.tip_vel_msg)
+        # Publish tip pose and velocity
+        self.tip_pose_pub.publish(self.create_pose(self.pd, self.Rd))
+        self.tip_vel_pub.publish(self.create_vel_vec(adjusted_vd))
 
         return (qd, qddot, pd, vd, Rd, wd)
 
-
-    # Takes a numpy array position and R matrix to produce a ROS pose msg
     def create_pose(self, position, orientation):
         pose = Pose()
         pose.position = Point_from_p(position)
         pose.orientation = Quaternion_from_R(orientation)
         return pose
 
-
-    # Takes a numpy array velocity and returns a ROS vec3 message
     def create_vel_vec(self, velocity):
-        vx, vy, vz = list(velocity)
+        vx, vy, vz = velocity
         vec3 = Vector3(x=vx, y=vy, z=vz)
         return vec3
 
-
     def ball_pos_callback(self, pos):
         self.ball_pos = p_from_Point(pos)
-
 
 
 def main(args=None):
