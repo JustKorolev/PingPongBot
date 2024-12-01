@@ -41,8 +41,8 @@ class Trajectory():
         self.swing_back_q = None
 
         # Swing variables
-        self.hit_time = 1.5
-        self.return_time = 1.5
+        self.hit_time = float("inf") # TODO: SHOULD BE SCALED TO PATH DISTANCE
+        self.return_time = float("inf")
         self.hit_pos = np.zeros(3)
         self.hit_rotation = Reye()
         self.hit_q = np.zeros(6)
@@ -52,9 +52,9 @@ class Trajectory():
         self.Rd = self.R0
 
         # Tuning constants
-        self.lam = 25
+        self.lam = 20
         self.lam_second = 15
-        self.gamma = 0.1
+        self.gamma = 0.08
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
 
         # Publishing
@@ -80,7 +80,7 @@ class Trajectory():
 
     def evaluate(self, t, dt):
         pd = self.pd
-        desired_hit_velocity = np.array([1, 1, 0])
+        desired_hit_velocity = np.array([2, 2, 2])
 
         # Swing back sequence
         # if t < self.swing_back_time:
@@ -91,28 +91,31 @@ class Trajectory():
         # Hit sequence
         if t < self.hit_time:
             # TODO: want to do this only once
-            # ______________________________________
-            Rf = R_from_RPY(pi/4, 0, 0) # TODO: TEMPORARY FOR TESTING
-            self.hit_rotation = Rf
-            R_rel = self.home_R.T @ Rf
-            theta = np.arccos((np.trace(R_rel) - 1) / 2)
+            R_rel = self.home_R.T @ self.hit_rotation
+            theta = fmod(np.arccos((np.trace(R_rel) - 1) / 2), 2*pi)
             rot_axis = np.array([
                 R_rel[2, 1] - R_rel[1, 2],
                 R_rel[0, 2] - R_rel[2, 0],
                 R_rel[1, 0] - R_rel[0, 1]
                 ]) / (2 * np.sin(theta))
-
-            if t < 0.01: # TODO: TENTATIVE FIX
-                self.hit_q = self.newton_raphson(self.ball_pos, self.home_q)
             _, _, Jvf, _ = self.chain.fkin(self.hit_q)
             qdotf = np.linalg.pinv(Jvf) @ desired_hit_velocity
-            #____________________________________________________
+            if t < dt: # TODO: TENTATIVE FIX
+                # ______________________________________
+                Rf = R_from_RPY(-pi/4, 0, 5*pi/4) # TODO: TEMPORARY FOR TESTING, FIGURE OUT RELATIVE TO WORLD
+                self.hit_rotation = Rf
+                self.hit_pos = self.ball_pos # TODO: REDUNDANT
+
+                self.hit_q = self.newton_raphson(self.ball_pos, self.home_q)
+
+                self.hit_time = self.calculate_sequence_time(self.qd, self.hit_q, np.zeros(6), qdotf)
+                #____________________________________________________
 
             # ROTATION CALCULATION
-            sr, srdot = spline(t, self.hit_time, 0, 1, 0, 0)
+            sr, srdot = goto(t, self.hit_time, 0, 1)
             Rot = rodrigues_formula(rot_axis, theta * sr)
             Rd = self.home_R @ Rot
-            wd = self.home_R @ (rot_axis * srdot)
+            wd = self.home_R @ rot_axis * (theta * srdot) # TODO: MAY BE ILL DEFINED SINCE THERE ARE DISCREPANCIES
 
             # Pure position manipulation
             qd_hit, qddot_hit = spline(t, self.hit_time, self.home_q, self.hit_q, np.zeros(6), qdotf)
@@ -120,15 +123,15 @@ class Trajectory():
             pd, _, Jv, _ = self.chain.fkin(qd_hit)
             vd = Jv @ qddot_hit
 
-            self.hit_pos = self.ball_pos
-
         # Return home sequence
         elif t < self.hit_time + self.return_time:
+            if t < self.hit_time + dt: # TODO: TENTATIVE FIX
+                self.return_time = 1 # TODO: MAKE DYNAMIC LIKE SELF.HIT_TIME
             #TODO: DO ONLY ONCE
             # _____________________
 
             R_rel = self.hit_rotation.T @ self.home_R
-            theta = np.arccos((np.trace(R_rel) - 1) / 2) % 2*pi
+            theta = fmod(np.arccos((np.trace(R_rel) - 1) / 2), 2*pi)
             rot_axis = np.array([
                 R_rel[2, 1] - R_rel[1, 2],
                 R_rel[0, 2] - R_rel[2, 0],
@@ -141,12 +144,15 @@ class Trajectory():
             pd, vd = spline(t - self.hit_time, self.return_time,
                             self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
 
+            # print(pd)
+            # print(vd)
+
             # ROTATION CALCULATION
 
-            sr, srdot = spline(t - self.hit_time, self.return_time, 0, 1, 0, 0)
+            sr, srdot = goto(t - self.hit_time, self.return_time, 0, 1)
             Rot = rodrigues_formula(rot_axis, theta * sr)
-            Rd = self.home_R @ Rot
-            wd = self.home_R @ (rot_axis * srdot)
+            Rd = self.hit_rotation @ Rot
+            wd = self.hit_rotation @ (rot_axis * theta * srdot)
         else:
             pd = self.pd
             vd = np.zeros(3)
@@ -191,11 +197,18 @@ class Trajectory():
         qddot_secondary = J_pinv_s @ adjusted_wd
         N = J_adjusted.shape[1]
 
-        if not (t < self.hit_time):
-            qddot = qddot_main + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
-        else:
-            qddot = J_pinv @ combined_vwd
-            # qddot = qddot_hit + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
+        # BASIC QDDOT CALCULATION
+        # TODO: CONSIDER USING TARGETED-REMOVAL/BLENDING
+        jac_winv = np.linalg.pinv(J_adjusted.T @ J_adjusted +\
+                                np.diag(self.gamma_array)) @ J_adjusted.T
+        qddot = jac_winv @ combined_vwd
+
+        # MORE SOPHISTICATED QDDOT CALCULATIONS
+        # if not (t < self.hit_time):
+        #     qddot = qddot_main + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
+        # else:
+        #     qddot = J_pinv @ combined_vwd
+        #     # qddot = qddot_hit + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
 
         qd = qdlast + dt * qddot
 
@@ -241,6 +254,15 @@ class Trajectory():
             q[i] = fmod(q[i], 2*pi)
 
         return q
+
+
+    # TODO: MAKE THIS MORE SOPHISTICATED
+    def calculate_sequence_time(self, q0, qf, qddot0, qddotf):
+        # TODO: THIS IS VERY JANK
+        avg_qddot = np.linalg.norm(qddotf - qddot0) / 8
+        print(avg_qddot)
+        return np.linalg.norm(qf - q0) / avg_qddot
+
 
     # Takes a numpy array position and R matrix to produce a ROS pose msg
     def create_pose(self, position, orientation):

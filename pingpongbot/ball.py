@@ -50,7 +50,8 @@ class DemoNode(Node):
         self.tip_R = Reye()
 
         # Initialize the ball position, velocity, set the acceleration.
-        self.radius = 0.02
+        self.radius = 0.005 # To reduce complexity in collisions
+        self.visual_radius = 0.02
         self.collision_tol = 0
         self.hit_timeout = 0
 
@@ -59,7 +60,7 @@ class DemoNode(Node):
         self.a = np.array([0.0, 0.0, 0.0])
 
         # Create the sphere marker.
-        diam        = 2 * self.radius
+        diam        = 2 * self.visual_radius
         self.marker = Marker()
         self.marker.header.frame_id  = "world"
         self.marker.header.stamp     = self.get_clock().now().to_msg()
@@ -116,10 +117,11 @@ class DemoNode(Node):
         if self.check_hit() and self.hit_timeout <= 0:
             n = self.tip_R[:, 1]
             print(self.tip_vel)
+            print(n)
             v_rel = self.v - self.tip_vel
             self.v = self.v - 2 * (v_rel @ n) * n
             print(self.v)
-            self.hit_timeout = 2
+            self.hit_timeout = 0.5
 
         # Subtract from hit timeout
         self.hit_timeout -= self.dt
