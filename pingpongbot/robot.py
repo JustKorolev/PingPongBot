@@ -101,15 +101,19 @@ class Trajectory():
             _, _, Jvf, _ = self.chain.fkin(self.hit_q)
             qdotf = np.linalg.pinv(Jvf) @ desired_hit_velocity
             if t < dt: # TODO: TENTATIVE FIX
-                # ______________________________________
-                Rf = R_from_RPY(-pi/4, 0, 5*pi/4) # TODO: TEMPORARY FOR TESTING, FIGURE OUT RELATIVE TO WORLD
+                # Testing with random pitch rotation
+                Rf = R_from_RPY(-pi/4, random.uniform(-pi, pi), 5*pi/4)
+                print("Rf (Desired Hit Rotation Matrix):\n", Rf)
+                
                 self.hit_rotation = Rf
+                print("self.hit_rotation after assignment:\n", self.hit_rotation)
                 self.hit_pos = self.ball_pos # TODO: REDUNDANT
 
                 self.hit_q = self.newton_raphson(self.ball_pos, self.home_q)
 
                 self.hit_time = self.calculate_sequence_time(self.qd, self.hit_q, np.zeros(6), qdotf)
                 #____________________________________________________
+
 
             # ROTATION CALCULATION
             sr, srdot = goto(t, self.hit_time, 0, 1)
@@ -177,13 +181,13 @@ class Trajectory():
 
         # Adjusted velocities
         adjusted_vd = vd + (self.lam * error_p)
-        # adjusted_wd = (wd + (self.lam * error_r))[:2]
-        adjusted_wd = (wd + (self.lam * error_r))
+        adjusted_wd = (wd + (self.lam * error_r))[:2]
+        # adjusted_wd = (wd + (self.lam * error_r))
         combined_vwd = np.concatenate([adjusted_vd, adjusted_wd])
 
         # Jacobian adjustments
-        # J_adjusted = self.adjust_jacobian(Jv, Jw)
-        J_adjusted = np.vstack([Jv, Jw])
+        J_adjusted = self.adjust_jacobian(Jv, Jw)
+        # J_adjusted = np.vstack([Jv, Jw])
         J_p = J_adjusted[:3, :]
         J_s = J_adjusted[3:, :]
         J_pinv_p = np.linalg.pinv(J_p)
