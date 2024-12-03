@@ -74,11 +74,54 @@ class Trajectory():
         return ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
+    def get_target_surface_normal(self):
+    #Target normal is along the z-axis in the world frame? Double check this
+        return nz()
+
+    def get_current_tool_normal(self):
+        # get curr orientation matrix from forward kines
+        _, R_current, _, _ = self.chain.fkin(self.qd) 
+        return R_current[:, 2]  #z-axis of the current rotation matrix
+
+    def compute_rotation_from_normals(self, current_normal, target_normal):
+        current_normal = current_normal / np.linalg.norm(current_normal)
+        target_normal = target_normal / np.linalg.norm(target_normal)
+
+        # Compute the rotation axis and angle
+        rotation_axis = np.cross(current_normal, target_normal)
+        rotation_angle = np.arccos(np.clip(np.dot(current_normal, target_normal), -1.0, 1.0))
+
+        # Handle edge cases (normals are parallel or anti-parallel)
+        if np.linalg.norm(rotation_axis) < 1e-6:  
+            # Parallel normals
+            return Reye()
+        rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)  
+        # Normalize the axis
+
+        # Use Rodrigues formula to compute the rotation matrix
+        return rodrigues_formula(rotation_axis, rotation_angle)
+
+
+
     def adjust_jacobian(self, Jv, Jw):
         J_combined = np.vstack((Jv, Jw))
-        # Remove the last row
-        J_adjusted = J_combined[:-1, :]
+
+        # get the Surface Normals
+        target_normal = self.get_target_surface_normal() 
+        current_normal = self.get_current_tool_normal()  
+        #Rotation Matrix to Align the Normals
+        R_o = self.compute_rotation_from_normals(current_normal, target_normal)
+        R_full = np.block([
+            [R_o,           np.zeros((3, 3))],  
+            [np.zeros((3, 3)),            R_o]]) 
+        # Rotate the Jacobian
+        J_rotated = R_full @ J_combined  
+        # Remove the last row of the Jacobian
+        J_adjusted = J_rotated[:-1, :]
+
         return J_adjusted
+
+
 
     def evaluate(self, t, dt):
         pd = self.pd
