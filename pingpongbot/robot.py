@@ -34,7 +34,7 @@ class Trajectory():
         self.R0 = self.home_R
 
         # Swing back variables
-        self.swing_back_time = 2
+        self.swing_back_time = 3
         self.R_swing_back = R_from_RPY(0, 0, 0)
         self.swing_rot_axis_array, self.swing_rot_angle = axisangle_from_R(self.R_swing_back - self.home_R)
         self.swing_rot_axis = nxyz(self.swing_rot_axis_array[0], self.swing_rot_axis_array[1], self.swing_rot_axis_array[2])
@@ -54,8 +54,10 @@ class Trajectory():
         # Tuning constants
         self.lam = 20
         self.lam_second = 15
-        self.gamma = 0.08
+        self.gamma = 0.3
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
+        self.joint_weights = [0.5, 1, 0.2, 0.2, 0.1, 0.1]
+        self.weight_matrix = np.diag(self.joint_weights)
 
         # Publishing
         self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 100)
@@ -80,7 +82,7 @@ class Trajectory():
 
     def evaluate(self, t, dt):
         pd = self.pd
-        desired_hit_velocity = np.array([2, 2, 2])
+        desired_hit_velocity = np.array([5, 5, 5])
 
         # Swing back sequence
         # if t < self.swing_back_time:
@@ -102,9 +104,11 @@ class Trajectory():
             qdotf = np.linalg.pinv(Jvf) @ desired_hit_velocity
             if t < dt: # TODO: TENTATIVE FIX
                 # Testing with random pitch rotation
-                Rf = R_from_RPY(-pi/4, random.uniform(-pi, pi), 5*pi/4)
+                z_rot = pi
+                x_rot = -pi/2
+                Rf = (Rotz(pi) @ Rotx(0)) @ (Roty(0))
                 print("Rf (Desired Hit Rotation Matrix):\n", Rf)
-                
+
                 self.hit_rotation = Rf
                 print("self.hit_rotation after assignment:\n", self.hit_rotation)
                 self.hit_pos = self.ball_pos # TODO: REDUNDANT
@@ -181,13 +185,13 @@ class Trajectory():
 
         # Adjusted velocities
         adjusted_vd = vd + (self.lam * error_p)
-        adjusted_wd = (wd + (self.lam * error_r))[:2]
-        # adjusted_wd = (wd + (self.lam * error_r))
+        # adjusted_wd = (wd + (self.lam * error_r))[:2]
+        adjusted_wd = (wd + (self.lam * error_r))
         combined_vwd = np.concatenate([adjusted_vd, adjusted_wd])
 
         # Jacobian adjustments
-        J_adjusted = self.adjust_jacobian(Jv, Jw)
-        # J_adjusted = np.vstack([Jv, Jw])
+        # J_adjusted = self.adjust_jacobian(Jv, Jw)
+        J_adjusted = np.vstack([Jv, Jw])
         J_p = J_adjusted[:3, :]
         J_s = J_adjusted[3:, :]
         J_pinv_p = np.linalg.pinv(J_p)
@@ -263,9 +267,9 @@ class Trajectory():
     # TODO: MAKE THIS MORE SOPHISTICATED
     def calculate_sequence_time(self, q0, qf, qddot0, qddotf):
         # TODO: THIS IS VERY JANK
-        avg_qddot = np.linalg.norm(qddotf - qddot0) / 8
-        print(avg_qddot)
-        return np.linalg.norm(qf - q0) / avg_qddot
+        # avg_qddot = np.linalg.norm(qddotf - qddot0) / 4
+        # print(np.linalg.norm((qf - q0)) / avg_qddot)
+        return np.linalg.norm((qf - q0)) / 4 # TODO NEEDS WORK
 
 
     # Takes a numpy array position and R matrix to produce a ROS pose msg
