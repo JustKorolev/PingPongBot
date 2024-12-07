@@ -50,11 +50,11 @@ class DemoNode(Node):
 
         # Ball properties
         #unsure about this aproach but essentially a small raduis for collision detection
-        self.radius = 0.005  
+        self.radius = 0.005
         self.visual_radius = 0.02
         self.collision_tol = 0
         self.hit_timeout = 0
-        self.wait_time = 0.0 
+        self.wait_time = 0.0
         self.gravity = np.array([0.0, 0.0, -9.81])
 
         # Spawn the ball initially
@@ -111,7 +111,7 @@ class DemoNode(Node):
             if self.p[2] < self.radius:
                 self.p[2] = self.radius
                 self.v = np.zeros(3)
-                self.wait_time = 1.0  
+                self.wait_time = 1.0
 
         self.hit_timeout -= self.dt
         self.marker.header.stamp  = self.now().to_msg()
@@ -150,7 +150,7 @@ class DemoNode(Node):
         x = random.uniform(-1, 1)
         y = random.uniform(0.4, 1.0)
         # limit height to 1.2 meters
-        z = random.uniform(0.4, 1.2)  
+        z = random.uniform(0.4, 1.2)
         return np.array([x, y, z])
 
 #

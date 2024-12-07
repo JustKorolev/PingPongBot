@@ -54,9 +54,9 @@ class Trajectory():
         # Tuning constants
         self.lam = 20
         self.lam_second = 15
-        self.gamma = 0.3
+        self.gamma = 0.2
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
-        self.joint_weights = [0.5, 1, 0.2, 0.2, 0.1, 0.1]
+        self.joint_weights = np.array([1, 1, 1, 1, 1, 1])
         self.weight_matrix = np.diag(self.joint_weights)
 
         # Publishing
@@ -125,7 +125,7 @@ class Trajectory():
 
     def evaluate(self, t, dt):
         pd = self.pd
-        desired_hit_velocity = np.array([5, 5, 5])
+        desired_hit_velocity = np.array([2, 2, 2])
 
         # Swing back sequence
         # if t < self.swing_back_time:
@@ -137,18 +137,11 @@ class Trajectory():
         if t < self.hit_time:
             # TODO: want to do this only once
             R_rel = self.home_R.T @ self.hit_rotation
-            theta = fmod(np.arccos((np.trace(R_rel) - 1) / 2), 2*pi)
-            rot_axis = np.array([
-                R_rel[2, 1] - R_rel[1, 2],
-                R_rel[0, 2] - R_rel[2, 0],
-                R_rel[1, 0] - R_rel[0, 1]
-                ]) / (2 * np.sin(theta))
+            rot_axis, theta = axisangle_from_R(R_rel)
             _, _, Jvf, _ = self.chain.fkin(self.hit_q)
             qdotf = np.linalg.pinv(Jvf) @ desired_hit_velocity
             if t < dt: # TODO: TENTATIVE FIX
                 # Testing with random pitch rotation
-                z_rot = pi
-                x_rot = -pi/2
                 Rf = (Rotz(pi) @ Rotx(0)) @ (Roty(0))
                 print("Rf (Desired Hit Rotation Matrix):\n", Rf)
 
@@ -166,7 +159,7 @@ class Trajectory():
             sr, srdot = goto(t, self.hit_time, 0, 1)
             Rot = rodrigues_formula(rot_axis, theta * sr)
             Rd = self.home_R @ Rot
-            wd = self.home_R @ rot_axis * (theta * srdot) # TODO: MAY BE ILL DEFINED SINCE THERE ARE DISCREPANCIES
+            wd = self.home_R @ rot_axis * (theta * srdot)
 
             # Pure position manipulation
             qd_hit, qddot_hit = spline(t, self.hit_time, self.home_q, self.hit_q, np.zeros(6), qdotf)
@@ -182,12 +175,7 @@ class Trajectory():
             # _____________________
 
             R_rel = self.hit_rotation.T @ self.home_R
-            theta = fmod(np.arccos((np.trace(R_rel) - 1) / 2), 2*pi)
-            rot_axis = np.array([
-                R_rel[2, 1] - R_rel[1, 2],
-                R_rel[0, 2] - R_rel[2, 0],
-                R_rel[1, 0] - R_rel[0, 1]
-                ]) / (2 * np.sin(theta))
+            rot_axis, theta = axisangle_from_R(R_rel)
             #________________________
 
 
@@ -254,6 +242,10 @@ class Trajectory():
                                 np.diag(self.gamma_array)) @ J_adjusted.T
         qddot = jac_winv @ combined_vwd
 
+        # QDDOT WITH JOINT WEIGHTING MATRIX
+        # qddot = self.weight_matrix @ jac_winv.T @\
+        #     np.linalg.pinv(jac_winv @ self.weight_matrix @ jac_winv.T) @ combined_vwd
+
         # MORE SOPHISTICATED QDDOT CALCULATIONS
         # if not (t < self.hit_time):
         #     qddot = qddot_main + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
@@ -277,7 +269,7 @@ class Trajectory():
         return (qd, qddot, pd, vd, Rd, wd)
 
     # Newton Raphson
-    def newton_raphson(self, pgoal, q0):
+    def newton_raphson(self, pgoal, Rgoal, q0):
 
         # Collect the distance to goal and change in q every step!
         pdistance = []
@@ -291,9 +283,8 @@ class Trajectory():
 
         # IMPLEMENT THE NEWTON-RAPHSON ALGORITHM!
         for _ in range(N):
-            (pr, _, Jv, Jw) = self.chain.fkin(q)
+            (pr, _, Jv, _) = self.chain.fkin(q)
             jac = Jv #np.vstack((Jv, Jw))
-            # TODO INSERT MODIFIED JACOBIAN HERE, ADD DESIRED ORIENTATION
             q_new = q + np.linalg.pinv(jac) @ (pgoal - pr)
             qstepsize.append(np.linalg.norm(q_new - q))
             pdistance_curr = np.linalg.norm(pgoal - pr)
@@ -312,7 +303,7 @@ class Trajectory():
         # TODO: THIS IS VERY JANK
         # avg_qddot = np.linalg.norm(qddotf - qddot0) / 4
         # print(np.linalg.norm((qf - q0)) / avg_qddot)
-        return np.linalg.norm((qf - q0)) / 4 # TODO NEEDS WORK
+        return np.linalg.norm((qf - q0)) / 3 # TODO NEEDS WORK
 
 
     # Takes a numpy array position and R matrix to produce a ROS pose msg
