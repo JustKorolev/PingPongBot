@@ -130,6 +130,35 @@ class DemoNode(Node):
         self.a = np.zeros(3)
         self.hit_timeout = 0
 
+        current_time_s = self.get_clock().now().nanoseconds * 1e-9
+        z_target = 0.5  
+        g = 9.81
+        x0, y0, z0 = self.p
+        vx0, vy0, vz0 = 0.0, 0.0, 0.0
+        a = -0.5*g
+        b = vz0
+        c = z0 - z_target
+
+        discriminant = b**2 - 4*a*c
+        t_hit = None
+        if discriminant >= 0:
+            t_sol1 = (-b + np.sqrt(discriminant)) / (2*a)
+            t_sol2 = (-b - np.sqrt(discriminant)) / (2*a)
+            # We want the positive time solution
+            t_candidates = [t for t in [t_sol1, t_sol2] if t >= 0]
+            if t_candidates:
+                t_hit = min(t_candidates)
+
+        if t_hit is not None:
+            x_hit = x0 + vx0 * t_hit
+            y_hit = y0 + vy0 * t_hit
+            self.get_logger().info(
+                f"Kinematic Time: {t_hit:.3f}s - At z={z_target:.3f}, x={x_hit:.3f}, y={y_hit:.3f}"
+            )
+        else:
+            self.get_logger().info(f"No valid kinematic time found for z={z_target:.3f}")
+
+
     def tip_pose_callback(self, pose):
         pos_array = np.array([pose.position.x, pose.position.y, pose.position.z])
         R = R_from_Quaternion(pose.orientation)

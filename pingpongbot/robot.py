@@ -67,6 +67,10 @@ class Trajectory():
         node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 10)
 
         # Subscription variables
+        # Store ball positions and times in a list
+        self.ball_trajectory = []
+        #We can modify this to whatever we desire, i think 0.5 makese sense
+        self.z_target = 0.5 
         self.ball_pos = np.array([0.8, 0.8, 0.8])
 
 
@@ -274,7 +278,18 @@ class Trajectory():
         self.tip_pose_pub.publish(self.tip_pose_msg)
         self.tip_vel_pub.publish(self.tip_vel_msg)
 
-        return (qd, qddot, pd, vd, Rd, wd)
+
+    # Once we have at least two recorded positions of the ball, we can attempt kinematics
+        if len(self.ball_trajectory) > 1:
+            result = self.time_forZ(self.z_target)
+            if result is not None:
+                t_hit, x_hit, y_hit = result
+                # ddebuggs
+                # self.chain.node.get_logger().info(f"At z={self.z_target}, t={t_hit:.3f}s, x={x_hit:.3f}, y={y_hit:.3f}")
+
+        return (self.qd, np.zeros_like(self.qd), self.pd, np.zeros(3), self.Rd, np.zeros(3))
+        #For testing
+        #return (qd, qddot, pd, vd, Rd, wd)
 
     # Newton Raphson
     def newton_raphson(self, pgoal, q0):
@@ -326,9 +341,60 @@ class Trajectory():
         vx, vy, vz = velocity
         vec3 = Vector3(x=vx, y=vy, z=vz)
         return vec3
+    
 
     def ball_pos_callback(self, pos):
-        self.ball_pos = p_from_Point(pos)
+        pos_array = np.array([pos.x, pos.y, pos.z])
+        # Get current time
+        current_time = self.chain.node.get_clock().now().nanoseconds * 1e-9 
+        # Store the (time, position)
+        self.ball_trajectory.append((current_time, pos_array))
+        self.ball_pos = pos_array
+
+
+    def time_forZ(self, z_target):
+        if len(self.ball_trajectory) < 2:
+            return None
+
+        #finding the initial conditions
+        (t0, p0) = self.ball_trajectory[0]
+        (t1, p1) = self.ball_trajectory[1]
+
+        x0, y0, z0 = p0
+        x1, y1, z1 = p1
+        dt = t1 - t0
+        if dt <= 0:
+            return None
+
+        #initial velocities
+        vx0 = (x1 - x0) / dt
+        vy0 = (y1 - y0) / dt
+        vz0 = (z1 - z0) / dt
+
+        # Kinematic parameters
+        g = 9.81
+        a = -0.5 * g
+        b = vz0
+        c = (z0 - z_target)
+
+        discriminant = b**2 - 4*a*c
+        if discriminant < 0:
+            # No real solution, ball might never reach that z
+            return None
+
+        t_sol1 = (-b + np.sqrt(discriminant)) / (2*a)
+        t_sol2 = (-b - np.sqrt(discriminant)) / (2*a)
+
+        # it only makes sense to choose the positiove time so well go with that
+        t_candidates = [t for t in [t_sol1, t_sol2] if t > 0]
+        if not t_candidates:
+            return None
+        t_hit = min(t_candidates)
+        x_hit = x0 + vx0 * t_hit
+        y_hit = y0 + vy0 * t_hit
+
+        return (t_hit, x_hit, y_hit)
+
 
 
 def main(args=None):
