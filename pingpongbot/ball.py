@@ -1,7 +1,6 @@
 """balldemo.py
 
-   Simulate a non-physical ball and publish as a visualization marker
-   array to RVIZ.
+   Add deacription
 
    Node:      /balldemo
    Publish:   /visualization_marker_array   visualization_msgs.msg.MarkerArray
@@ -15,12 +14,12 @@ import random
 from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
 from rclpy.time                 import Duration
-from geometry_msgs.msg          import Pose, Vector3, Quaternion
+from geometry_msgs.msg          import Pose, Vector3, Quaternion, Point
 from std_msgs.msg               import ColorRGBA
 from visualization_msgs.msg     import Marker
 from visualization_msgs.msg     import MarkerArray
 
-from pingpongbot.utils.TransformHelpers     import *
+from pingpongbot.utils.TransformHelpers import *
 
 
 #
@@ -40,7 +39,7 @@ class DemoNode(Node):
                                         '/visualization_marker_array', quality)
         self.ball_pos_pub = self.create_publisher(Point, "/ball_pos", 10)
 
-        # Subscribing
+        # Subscriptions
         self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 100)
         self.create_subscription(Vector3, "/tip_vel", self.tip_vel_callback, 100)
 
@@ -49,18 +48,19 @@ class DemoNode(Node):
         self.tip_vel = np.zeros(3)
         self.tip_R = Reye()
 
-        # Initialize the ball position, velocity, set the acceleration.
-        self.radius = 0.005 # To reduce complexity in collisions
+        # Ball properties
+        #unsure about this aproach but essentially a small raduis for collision detection
+        self.radius = 0.005  
         self.visual_radius = 0.02
         self.collision_tol = 0
         self.hit_timeout = 0
+        self.wait_time = 0.0 
+        self.gravity = np.array([0.0, 0.0, -9.81])
 
-        self.p = self.generate_random_position()
-        self.v = np.array([0.0, 0.0, 0.0])
-        self.a = np.array([0.0, 0.0, 0.0])
+        # Spawn the ball initially
+        self.spawn_ball()
 
-        # Create the sphere marker.
-        diam        = 2 * self.visual_radius
+        diam = 2 * self.visual_radius
         self.marker = Marker()
         self.marker.header.frame_id  = "world"
         self.marker.header.stamp     = self.get_clock().now().to_msg()
@@ -69,16 +69,13 @@ class DemoNode(Node):
         self.marker.id               = 1
         self.marker.type             = Marker.SPHERE
         self.marker.pose.orientation = Quaternion()
-        self.marker.pose.position    = Point_from_p(self.p)
+        self.marker.pose.position    = Point(x=self.p[0], y=self.p[1], z=self.p[2])
         self.marker.scale            = Vector3(x = diam, y = diam, z = diam)
         self.marker.color            = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8)
-        # a = 0.8 is slightly transparent!
 
         # Create the marker array message.
         self.markerarray = MarkerArray(markers = [self.marker])
 
-        # Set up the timing so (t=0) will occur in the first update
-        # cycle (dt) from now.
         self.dt    = 1.0 / float(rate)
         self.t     = -self.dt
         self.start = self.get_clock().now() + Duration(seconds=self.dt)
@@ -88,56 +85,50 @@ class DemoNode(Node):
         self.get_logger().info("Running with dt of %f seconds (%fHz)" %
                                (self.dt, rate))
 
-    # Shutdown
     def shutdown(self):
-        # Destroy the node, including cleaning up the timer.
         self.destroy_node()
 
-    # Return the current time (in ROS format).
     def now(self):
         return self.start + Duration(seconds=self.t)
 
-    # Update - send a new joint command every time step.
     def update(self):
-        # To avoid any time jitter enforce a constant time step and
-        # integrate to get the current time.
+        # Update time
         self.t += self.dt
 
-        # Integrate the velocity, then the position.
-        self.v += self.dt * self.a
-        self.p += self.dt * self.v
+        # If we're waiting before respawning, just count down the wait.
+        if self.wait_time > 0.0:
+            self.wait_time -= self.dt
+            if self.wait_time <= 0.0:
+                # Time to respawn the ball
+                self.spawn_ball()
 
-        # Check for a bounce - note the change in x velocity is non-physical.
-        if self.p[2] < self.radius:
-            self.p[2] = self.radius + (self.radius - self.p[2])
-            self.v[2] *= -1.0
-            self.v[0] *= -1.0   # Change x just for the fun of it!
+        else:
+            self.a = self.gravity
+            self.v += self.dt * self.a
+            self.p += self.dt * self.v
 
-        # Check for collision with paddle
-        if self.check_hit() and self.hit_timeout <= 0:
-            n = self.tip_R[:, 1]
-            print(self.tip_vel)
-            print(n)
-            v_rel = self.v - self.tip_vel
-            self.v = self.v - 2 * (v_rel @ n) * n
-            print(self.v)
-            self.hit_timeout = 0.5
+            # Check if ball hit the ground
+            if self.p[2] < self.radius:
+                self.p[2] = self.radius
+                self.v = np.zeros(3)
+                self.wait_time = 1.0  
 
-        # Subtract from hit timeout
         self.hit_timeout -= self.dt
-
-        # Update the ID number to create a new ball and leave the
-        # previous balls where they are.
-        #####################
-        # self.marker.id += 1
-        #####################
-
-        # Update the message and publish.
         self.marker.header.stamp  = self.now().to_msg()
-        self.marker.pose.position = Point_from_p(self.p)
+        self.marker.pose.position.x = self.p[0]
+        self.marker.pose.position.y = self.p[1]
+        self.marker.pose.position.z = self.p[2]
         self.marker_pub.publish(self.markerarray)
-        self.ball_pos_pub.publish(self.marker.pose.position)
+        point_msg = Point(x=self.p[0], y=self.p[1], z=self.p[2])
+        self.ball_pos_pub.publish(point_msg)
 
+
+    def spawn_ball(self):
+        # Respawn the ball at a random position and reset velocity
+        self.p = self.generate_random_position()
+        self.v = np.array([0.0, 0.0, 0.0])
+        self.a = np.zeros(3)
+        self.hit_timeout = 0
 
     def tip_pose_callback(self, pose):
         pos_array = np.array([pose.position.x, pose.position.y, pose.position.z])
@@ -145,11 +136,9 @@ class DemoNode(Node):
         self.tip_pos = pos_array
         self.tip_R = R
 
-
     def tip_vel_callback(self, vel):
         vel_array = np.array([vel.x, vel.y, vel.z])
         self.tip_vel = vel_array
-
 
     def check_hit(self):
         abs_pos_diff = abs(self.p - self.tip_pos)
@@ -157,25 +146,25 @@ class DemoNode(Node):
         result = np.less(abs_pos_diff, tolerance_arr)
         return np.equal(np.all(result), True)
 
-
     def generate_random_position(self):
         x = random.uniform(-1, 1)
-        y = random.uniform(0.4, 1)
-        z = random.uniform(0.4, 1)
+        y = random.uniform(0.4, 1.0)
+        # limit height to 1.2 meters
+        z = random.uniform(0.4, 1.2)  
         return np.array([x, y, z])
 
 #
 #  Main Code
 #
 def main(args=None):
-    # Initialize ROS and the demo node (100Hz).
+    # Initialize ROS and the demo node
     rclpy.init(args=args)
     node = DemoNode('ball', 1000)
 
     # Run until interrupted.
     rclpy.spin(node)
 
-    # Shutdown the node and ROS.
+    # Shutdown
     node.shutdown()
     rclpy.shutdown()
 
