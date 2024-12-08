@@ -16,7 +16,7 @@ from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
 from rclpy.time                 import Duration
 from geometry_msgs.msg          import Pose, Vector3, Quaternion, Point
-from std_msgs.msg               import ColorRGBA
+from std_msgs.msg               import ColorRGBA, Bool
 from visualization_msgs.msg     import Marker
 from visualization_msgs.msg     import MarkerArray
 
@@ -44,6 +44,7 @@ class DemoNode(Node):
         # Subscriptions
         self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 100)
         self.create_subscription(Vector3, "/tip_vel", self.tip_vel_callback, 100)
+        self.create_subscription(Bool, "/start", self.start_callback, 100)
 
         # Subscription variables
         self.tip_pos = np.zeros(3)
@@ -52,12 +53,12 @@ class DemoNode(Node):
 
         # Ball properties
         #unsure about this aproach but essentially a small raduis for collision detection
-        self.radius = 0.005
+        self.radius = 0.02
         self.visual_radius = 0.02
-        self.collision_tol = 0
+        self.collision_tol = 0.1
         self.hit_timeout = 0
         self.wait_time = 0.0
-        self.gravity = np.array([0.0, 0.0, -9.81])
+        self.gravity = np.array([0.0, 0.0, -1])
 
         # Spawn the ball initially
         self.spawn_ball()
@@ -81,6 +82,7 @@ class DemoNode(Node):
         self.dt    = 1.0 / float(rate)
         self.t     = -self.dt
         self.start = self.get_clock().now() + Duration(seconds=self.dt)
+        self.has_started = False
 
         # Create a timer to keep calling update().
         self.create_timer(self.dt, self.update)
@@ -94,6 +96,15 @@ class DemoNode(Node):
         return self.start + Duration(seconds=self.t)
 
     def update(self):
+
+        if not self.has_started:
+            return
+
+        pos_msg = Point(x=self.p[0], y=self.p[1], z=self.p[2])
+        vel_msg = Point(x=self.v[0], y=self.v[1], z=self.v[2])
+        self.ball_pos_pub.publish(pos_msg)
+        self.ball_vel_pub.publish(vel_msg)
+
         # Update time
         self.t += self.dt
 
@@ -118,11 +129,10 @@ class DemoNode(Node):
         # Check for collision with paddle
         if self.check_hit() and self.hit_timeout <= 0:
             n = self.tip_R[:, 1]
-            print(self.tip_vel)
-            print(n)
             v_rel = self.v - self.tip_vel
             self.v = self.v - 2 * (v_rel @ n) * n
-            print(self.v)
+            print(f"Tip velocity: {self.tip_vel}")
+            print(f"ball velocity: {self.v}")
             self.hit_timeout = 0.5
 
         self.hit_timeout -= self.dt
@@ -131,10 +141,6 @@ class DemoNode(Node):
         self.marker.pose.position.y = self.p[1]
         self.marker.pose.position.z = self.p[2]
         self.marker_pub.publish(self.markerarray)
-        pos_msg = Point(x=self.p[0], y=self.p[1], z=self.p[2])
-        vel_msg = Point(x=self.v[0], y=self.v[1], z=self.v[2])
-        self.ball_pos_pub.publish(pos_msg)
-        self.ball_vel_pub.publish(vel_msg)
 
 
     def spawn_ball(self):
@@ -153,6 +159,9 @@ class DemoNode(Node):
         vel_array = np.array([vel.x, vel.y, vel.z])
         self.tip_vel = vel_array
 
+    def start_callback(self, has_started):
+        self.has_started = has_started
+
     def check_hit(self):
         abs_pos_diff = abs(self.p - self.tip_pos)
         tolerance_arr = np.ones(3) * (self.radius + self.collision_tol)
@@ -161,9 +170,9 @@ class DemoNode(Node):
 
     def generate_random_position(self):
         x = random.uniform(-1, 1)
-        y = random.uniform(0.4, 1.0)
+        y = random.uniform(-1, 1)
         # limit height to 1.2 meters
-        z = random.uniform(0.4, 1.2)
+        z = 1 #random.uniform(2, 4)
         return np.array([x, y, z])
 
 #

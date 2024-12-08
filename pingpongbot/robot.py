@@ -13,6 +13,7 @@ from pingpongbot.utils.TrajectoryUtils    import *
 from pingpongbot.utils.KinematicChain     import KinematicChain
  # Import the format for the condition number message
 from geometry_msgs.msg import Pose, Vector3, Point
+from std_msgs.msg import Bool
 
 #
 # Trajectory Class
@@ -21,9 +22,24 @@ class Trajectory():
     # Initialization
     def __init__(self, node):
 
+        # Publishing
+        self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 100)
+        self.tip_vel_pub = node.create_publisher(Vector3, "/tip_vel", 100)
+        self.start_pub = node.create_publisher(Bool, "/start", 10)
+        self.start_pub.publish(Bool())
+
+        # Subscribing
+        node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 10)
+        node.create_subscription(Point, "/ball_vel", self.ball_vel_callback, 10)
+
+        # Subscription variables
+        # Store ball positions and times in a list
+        #We can modify this to whatever we desire, i think 0.5 makese sense
+        self.ball_pos = np.ones(3)
+        self.ball_vel = np.zeros(3)
+
         self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
 
-        # Our home joint angles
         self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
         self.q_centers = np.array([-pi/2, -pi/2, 0, -pi/2, 0, 0])
 
@@ -32,49 +48,33 @@ class Trajectory():
         self.home_p, self.home_R, _, _  = self.chain.fkin(self.home_q)
         self.p0 = self.home_p
         self.R0 = self.home_R
-
-        # Swing back variables
-        self.swing_back_time = 3
-        self.R_swing_back = R_from_RPY(0, 0, 0)
-        self.swing_rot_axis_array, self.swing_rot_angle = axisangle_from_R(self.R_swing_back - self.home_R)
-        self.swing_rot_axis = nxyz(self.swing_rot_axis_array[0], self.swing_rot_axis_array[1], self.swing_rot_axis_array[2])
-        self.swing_back_q = None
+        self.qdot0 = np.zeros(6)
 
         # Swing variables
-        self.hit_time = self.find_hit_positions(0.2)
-        self.return_time = float("inf")
+        self.hit_z = 0.1
+        self.hit_time = float("inf")
+        self.ball_hit_velocity = np.zeros(3)
         self.hit_pos = np.zeros(3)
+        self.update_hit_parameters(self.hit_z)
+        self.return_time = float("inf")
         self.hit_q = np.zeros(6)
         self.return_q = np.zeros(6)
+        self.time_offset = 0
 
         self.qd = self.q0
+        self.vd = np.zeros(3)
         self.pd = self.p0
         self.Rd = self.R0
         self.nd = self.get_paddle_normal(self.R0)
 
         # Tuning constants
-        self.lam = 20
+        self.lam = 10
         self.lam_second = 15
-        self.gamma = 0.1
+        self.gamma = 0
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
         self.joint_weights = np.array([1, 1, 1, 1, 1, 1])
         self.weight_matrix = np.diag(self.joint_weights)
 
-        # Publishing
-        self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 100)
-        self.tip_vel_pub = node.create_publisher(Vector3, "/tip_vel", 100)
-
-        # Subscribing
-        node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 10)
-        node.create_subscription(Point, "/ball_vel", self.ball_vel_callback, 10)
-
-        # Subscription variables
-        # Store ball positions and times in a list
-        self.ball_trajectory = []
-        #We can modify this to whatever we desire, i think 0.5 makese sense
-        self.z_target = 0.5
-        self.ball_pos = np.ones(3)
-        self.ball_vel = np.zeros(3)
 
 
     def jointnames(self):
@@ -139,82 +139,43 @@ class Trajectory():
     def evaluate(self, t, dt):
         pd = self.pd
         desired_ball_velocity = np.array([0, 0, 2])
-        incoming_ball_velocity = np.zeros(3) # TODO: CHANGE THIS TO THE FUNCTION THAT RETURNS BALL VEL AT DESIRED TIME
-        paddle_vel = (desired_ball_velocity - incoming_ball_velocity)
-        paddle_normal = paddle_vel / np.linalg.norm(paddle_vel)
+        paddle_hit_vel = 0.5 * (desired_ball_velocity - self.ball_hit_velocity)
+        paddle_normal = paddle_hit_vel / np.linalg.norm(paddle_hit_vel)
+        print(f"Paddle hit vel: {paddle_hit_vel}")
+        print(f"Paddle normal: {paddle_normal}")
 
         _, _, Jvf, _ = self.chain.fkin(self.hit_q)
-        qdotf = np.linalg.pinv(Jvf) @ paddle_vel
+        qdotf = np.linalg.pinv(Jvf) @ paddle_hit_vel
 
         # Hit sequence
-        if t < self.hit_time:
-            # TODO: want to do this only once
-            # R_rel = self.home_R.T @ self.hit_rotation
-            # rot_axis, theta = axisangle_from_R(R_rel)
+        if t - self.time_offset < self.hit_time:
             if t < dt: # TODO:
                 # print("self.hit_rotation after assignment:\n", self.hit_rotation)
-                self.hit_pos = self.ball_pos # TODO: REDUNDANT
 
-                self.hit_q = self.newton_raphson(self.ball_pos, paddle_normal, self.home_q)
+                self.hit_q = self.newton_raphson(self.hit_pos, paddle_normal, self.home_q)
 
-                self.hit_time = self.find_hit_positions(0.2)
-                #____________________________________________________
-
-
-            # ROTATION CALCULATION
-            # sr, srdot = goto(t, self.hit_time, 0, 1)
-            # Rot = rodrigues_formula(rot_axis, theta * sr)
-            # Rd = self.home_R @ Rot
-            # wd = self.home_R @ rot_axis * (theta * srdot)
 
             # qd calculation
-            qd_hit, qddot_hit = spline(t, self.hit_time, self.home_q, self.hit_q, np.zeros(6), qdotf)
+            qd_hit, qddot_hit = spline(t - self.time_offset, self.hit_time, self.q0, self.hit_q, self.qdot0, qdotf)
 
             pd, Rd, Jv, Jw = self.chain.fkin(qd_hit)
             vd = Jv @ qddot_hit
             wd = Jw @ qddot_hit
             nd = self.get_paddle_normal(Rd)
 
-        # Return home sequence
-        # elif t < self.hit_time + self.return_time:
-        #     if t < self.hit_time + dt: # TODO: TENTATIVE FIX
-        #         self.return_time = 4 # TODO: MAKE DYNAMIC LIKE SELF.HIT_TIME
-        #         self.return_q = self.newton_raphson(self.home_p, paddle_normal, self.hit_q)
-        #     #TODO: DO ONLY ONCE
-        #     # _____________________
-
-        #     # R_rel = self.hit_rotation.T @ self.home_R
-        #     # rot_axis, theta = axisangle_from_R(R_rel)
-        #     #________________________
+            # Post hit
+            if t - self.time_offset > self.hit_time - dt:
+                self.time_offset += self.hit_time
+                self.update_hit_parameters(self.hit_z)
+                self.q0 = self.hit_q
+                self.qdot0 = qdotf
+                print(f"ACTUAL FINAL HIT VEL: {self.vd}")
+                print(f"ACTUAL PADDLE NORMAL: {self.nd}")
+                return 
 
 
-        #     # POSITION CALCULATION
-        #     # pd, vd = spline(t - self.hit_time, self.return_time,
-        #     #                 self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
 
-        #     # print(pd)
-        #     # print(vd)
 
-        #     # ROTATION CALCULATION
-
-        #     qd_hit, qddot_hit = spline(t-self.hit_time, self.return_time, self.hit_q, self.return_q, qdotf, np.zeros(6))
-
-        #     # print(self.qd)
-        #     pd, Rd, Jv, Jw = self.chain.fkin(qd_hit)
-        #     vd = Jv @ qddot_hit
-        #     wd = Jw @ qddot_hit
-        #     nd = self.get_paddle_normal(Rd)
-
-        #     # sr, srdot = goto(t - self.hit_time, self.return_time, 0, 1)
-        #     # Rot = rodrigues_formula(rot_axis, theta * sr)
-        #     # Rd = self.hit_rotation @ Rot
-        #     # wd = self.hit_rotation @ (rot_axis * theta * srdot)
-        # else:
-        #     pd = self.pd
-        #     vd = np.zeros(3)
-        #     Rd = self.Rd
-        #     wd = np.zeros(3)
-        #     nd = np.zeros(3)
 
 
 
@@ -277,16 +238,15 @@ class Trajectory():
         self.qd = qd
         self.pd = pd
         self.Rd = Rd
+        self.vd = vd
 
         # Publishing
         self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
-        self.tip_vel_msg = self.create_vel_vec(adjusted_vd)
+        self.tip_vel_msg = self.create_vel_vec(self.vd)
         self.tip_pose_pub.publish(self.tip_pose_msg)
         self.tip_vel_pub.publish(self.tip_vel_msg)
 
-        return (self.qd, np.zeros_like(self.qd), self.pd, np.zeros(3), self.Rd, np.zeros(3))
-        #For testing
-        #return (qd, qddot, pd, vd, Rd, wd)
+        return (qd, qddot, pd, vd, Rd, wd)
 
     # Newton Raphson
     def newton_raphson(self, pgoal, ngoal, q0):
@@ -347,22 +307,19 @@ class Trajectory():
         self.ball_pos = pos_array
 
 
-    def find_hit_positions(self, z_target):
+    def update_hit_parameters(self, z_target):
         p0 = self.ball_pos
-        x0, y0, z0 = tuple(p0)
+        x0, y0, z0 = list(p0)
         v0 = self.ball_vel
-        vx0, vy0, vz0 = tuple(v0)
+        vx0, vy0, vz0 = v0[0], v0[1], v0[2]
 
         # Kinematic parameters
-        g = 9.81
-        a = -0.5 * g
+        g = -1
+        a = 0.5 * g
         b = vz0
         c = (z0 - z_target)
 
         discriminant = b**2 - 4*a*c
-        if discriminant < 0:
-            # No real solution, ball might never reach that z
-            return None
 
         t_sol1 = (-b + np.sqrt(discriminant)) / (2*a)
         t_sol2 = (-b - np.sqrt(discriminant)) / (2*a)
@@ -379,18 +336,15 @@ class Trajectory():
 
         # Compute the velocity at t_hit:
         # vx and vy remain constant, vz changes due to gravity
-        v_hit_x = vx0
-        v_hit_y = vy0
-        v_hit_z = vz0 - g * t_hit
+        v_hit_z = vz0 + g * t_hit
 
-        self.hit_velocity = np.array([v_hit_x, v_hit_y, v_hit_z])
+        self.ball_hit_velocity = np.array([vx0, vy0, v_hit_z])
+        self.hit_time = t_hit
+        self.hit_pos = np.array([x_hit, y_hit, self.hit_z])
 
-        return (t_hit, x_hit, y_hit, self.hit_velocity)
+        return (t_hit, x_hit, y_hit, self.ball_hit_velocity)
 
 
-
-    def ball_vel_callback(self, vel):
-        self.ball_vel = p_from_Point(vel)
 
     def ball_vel_callback(self, vel):
         self.ball_vel = p_from_Point(vel)
