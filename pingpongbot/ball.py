@@ -1,3 +1,4 @@
+
 """balldemo.py
 
    Add deacription
@@ -38,6 +39,7 @@ class DemoNode(Node):
         self.marker_pub = self.create_publisher(MarkerArray,
                                         '/visualization_marker_array', quality)
         self.ball_pos_pub = self.create_publisher(Point, "/ball_pos", 10)
+        self.ball_vel_pub = self.create_publisher(Point, "/ball_vel", 10)
 
         # Subscriptions
         self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 100)
@@ -113,51 +115,33 @@ class DemoNode(Node):
                 self.v = np.zeros(3)
                 self.wait_time = 1.0
 
+        # Check for collision with paddle
+        if self.check_hit() and self.hit_timeout <= 0:
+            n = self.tip_R[:, 1]
+            print(self.tip_vel)
+            print(n)
+            v_rel = self.v - self.tip_vel
+            self.v = self.v - 2 * (v_rel @ n) * n
+            print(self.v)
+            self.hit_timeout = 0.5
+
         self.hit_timeout -= self.dt
         self.marker.header.stamp  = self.now().to_msg()
         self.marker.pose.position.x = self.p[0]
         self.marker.pose.position.y = self.p[1]
         self.marker.pose.position.z = self.p[2]
         self.marker_pub.publish(self.markerarray)
-        point_msg = Point(x=self.p[0], y=self.p[1], z=self.p[2])
-        self.ball_pos_pub.publish(point_msg)
+        pos_msg = Point(x=self.p[0], y=self.p[1], z=self.p[2])
+        vel_msg = Point(x=self.v[0], y=self.v[1], z=self.v[2])
+        self.ball_pos_pub.publish(pos_msg)
+        self.ball_vel_pub.publish(vel_msg)
 
 
     def spawn_ball(self):
         # Respawn the ball at a random position and reset velocity
         self.p = self.generate_random_position()
         self.v = np.array([0.0, 0.0, 0.0])
-        self.a = np.zeros(3)
         self.hit_timeout = 0
-
-        current_time_s = self.get_clock().now().nanoseconds * 1e-9
-        z_target = 0.5  
-        g = 9.81
-        x0, y0, z0 = self.p
-        vx0, vy0, vz0 = 0.0, 0.0, 0.0
-        a = -0.5*g
-        b = vz0
-        c = z0 - z_target
-
-        discriminant = b**2 - 4*a*c
-        t_hit = None
-        if discriminant >= 0:
-            t_sol1 = (-b + np.sqrt(discriminant)) / (2*a)
-            t_sol2 = (-b - np.sqrt(discriminant)) / (2*a)
-            # We want the positive time solution
-            t_candidates = [t for t in [t_sol1, t_sol2] if t >= 0]
-            if t_candidates:
-                t_hit = min(t_candidates)
-
-        if t_hit is not None:
-            x_hit = x0 + vx0 * t_hit
-            y_hit = y0 + vy0 * t_hit
-            self.get_logger().info(
-                f"Kinematic Time: {t_hit:.3f}s - At z={z_target:.3f}, x={x_hit:.3f}, y={y_hit:.3f}"
-            )
-        else:
-            self.get_logger().info(f"No valid kinematic time found for z={z_target:.3f}")
-
 
     def tip_pose_callback(self, pose):
         pos_array = np.array([pose.position.x, pose.position.y, pose.position.z])

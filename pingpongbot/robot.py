@@ -41,20 +41,21 @@ class Trajectory():
         self.swing_back_q = None
 
         # Swing variables
-        self.hit_time = float("inf") # TODO: SHOULD BE SCALED TO PATH DISTANCE
+        self.hit_time = self.find_hit_positions(0.2)
         self.return_time = float("inf")
         self.hit_pos = np.zeros(3)
-        self.hit_rotation = Reye()
         self.hit_q = np.zeros(6)
+        self.return_q = np.zeros(6)
 
         self.qd = self.q0
         self.pd = self.p0
         self.Rd = self.R0
+        self.nd = self.get_paddle_normal(self.R0)
 
         # Tuning constants
         self.lam = 20
         self.lam_second = 15
-        self.gamma = 0.2
+        self.gamma = 0.1
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
         self.joint_weights = np.array([1, 1, 1, 1, 1, 1])
         self.weight_matrix = np.diag(self.joint_weights)
@@ -65,13 +66,15 @@ class Trajectory():
 
         # Subscribing
         node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 10)
+        node.create_subscription(Point, "/ball_vel", self.ball_vel_callback, 10)
 
         # Subscription variables
         # Store ball positions and times in a list
         self.ball_trajectory = []
         #We can modify this to whatever we desire, i think 0.5 makese sense
-        self.z_target = 0.5 
-        self.ball_pos = np.array([0.8, 0.8, 0.8])
+        self.z_target = 0.5
+        self.ball_pos = np.ones(3)
+        self.ball_vel = np.zeros(3)
 
 
     def jointnames(self):
@@ -84,7 +87,7 @@ class Trajectory():
 
     def get_current_tool_normal(self):
         # get curr orientation matrix from forward kines
-        _, R_current, _, _ = self.chain.fkin(self.qd) 
+        _, R_current, _, _ = self.chain.fkin(self.qd)
         return R_current[:, 2]  #z-axis of the current rotation matrix
 
     def compute_rotation_from_normals(self, current_normal, target_normal):
@@ -96,10 +99,10 @@ class Trajectory():
         rotation_angle = np.arccos(np.clip(np.dot(current_normal, target_normal), -1.0, 1.0))
 
         # Handle edge cases (normals are parallel or anti-parallel)
-        if np.linalg.norm(rotation_axis) < 1e-6:  
+        if np.linalg.norm(rotation_axis) < 1e-6:
             # Parallel normals
             return Reye()
-        rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)  
+        rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
         # Normalize the axis
 
         # Use Rodrigues formula to compute the rotation matrix
@@ -107,100 +110,111 @@ class Trajectory():
 
 
 
-    def adjust_jacobian(self, Jv, Jw):
-        J_combined = np.vstack((Jv, Jw))
+    # def adjust_jacobian(self, Jv, Jw):
+    #     J_combined = np.vstack((Jv, Jw))
 
-        # get the Surface Normals
-        target_normal = self.get_target_surface_normal() 
-        current_normal = self.get_current_tool_normal()  
-        #Rotation Matrix to Align the Normals
-        R_o = self.compute_rotation_from_normals(current_normal, target_normal)
-        R_full = np.block([
-            [R_o,           np.zeros((3, 3))],  
-            [np.zeros((3, 3)),            R_o]]) 
-        # Rotate the Jacobian
-        J_rotated = R_full @ J_combined  
-        # Remove the last row of the Jacobian
-        J_adjusted = J_rotated[:-1, :]
+    #     # get the Surface Normals
+    #     target_normal = self.get_target_surface_normal()
+    #     current_normal = self.get_current_tool_normal()
+    #     #Rotation Matrix to Align the Normals
+    #     R_o = self.compute_rotation_from_normals(current_normal, target_normal)
+    #     R_full = np.block([
+    #         [R_o,           np.zeros((3, 3))],
+    #         [np.zeros((3, 3)),            R_o]])
+    #     # Rotate the Jacobian
+    #     J_rotated = R_full @ J_combined
+    #     # Remove the last row of the Jacobian
+    #     J_adjusted = J_rotated[:-1, :]
 
+    #     return J_adjusted
+
+    def adjusted_jacobian(self, Jv, Jw, nr):
+        n_cross = crossmat(nr)
+        Jn = n_cross @ Jw
+        J_adjusted = np.vstack([Jv, Jn])
         return J_adjusted
 
 
 
     def evaluate(self, t, dt):
         pd = self.pd
-        desired_hit_velocity = np.array([2, 2, 2])
+        desired_ball_velocity = np.array([0, 0, 2])
+        incoming_ball_velocity = np.zeros(3) # TODO: CHANGE THIS TO THE FUNCTION THAT RETURNS BALL VEL AT DESIRED TIME
+        paddle_vel = (desired_ball_velocity - incoming_ball_velocity)
+        paddle_normal = paddle_vel / np.linalg.norm(paddle_vel)
 
-        # Swing back sequence
-        # if t < self.swing_back_time:
-        #     pd, vd = spline(t, self.swing_back_time, self.home_p, swing_back_pd,
-        #                     np.zeros(3), np.zeros(3))
-        #     self.swing_back_q = self.qd
+        _, _, Jvf, _ = self.chain.fkin(self.hit_q)
+        qdotf = np.linalg.pinv(Jvf) @ paddle_vel
 
         # Hit sequence
         if t < self.hit_time:
             # TODO: want to do this only once
-            R_rel = self.home_R.T @ self.hit_rotation
-            rot_axis, theta = axisangle_from_R(R_rel)
-            _, _, Jvf, _ = self.chain.fkin(self.hit_q)
-            qdotf = np.linalg.pinv(Jvf) @ desired_hit_velocity
-            if t < dt: # TODO: TENTATIVE FIX
-                # Testing with random pitch rotation
-                Rf = (Rotz(pi) @ Rotx(0)) @ (Roty(0))
-                print("Rf (Desired Hit Rotation Matrix):\n", Rf)
-
-                self.hit_rotation = Rf
-                print("self.hit_rotation after assignment:\n", self.hit_rotation)
+            # R_rel = self.home_R.T @ self.hit_rotation
+            # rot_axis, theta = axisangle_from_R(R_rel)
+            if t < dt: # TODO:
+                # print("self.hit_rotation after assignment:\n", self.hit_rotation)
                 self.hit_pos = self.ball_pos # TODO: REDUNDANT
 
-                self.hit_q = self.newton_raphson(self.ball_pos, self.home_q)
+                self.hit_q = self.newton_raphson(self.ball_pos, paddle_normal, self.home_q)
 
-                self.hit_time = self.calculate_sequence_time(self.qd, self.hit_q, np.zeros(6), qdotf)
+                self.hit_time = self.find_hit_positions(0.2)
                 #____________________________________________________
 
 
             # ROTATION CALCULATION
-            sr, srdot = goto(t, self.hit_time, 0, 1)
-            Rot = rodrigues_formula(rot_axis, theta * sr)
-            Rd = self.home_R @ Rot
-            wd = self.home_R @ rot_axis * (theta * srdot)
+            # sr, srdot = goto(t, self.hit_time, 0, 1)
+            # Rot = rodrigues_formula(rot_axis, theta * sr)
+            # Rd = self.home_R @ Rot
+            # wd = self.home_R @ rot_axis * (theta * srdot)
 
-            # Pure position manipulation
+            # qd calculation
             qd_hit, qddot_hit = spline(t, self.hit_time, self.home_q, self.hit_q, np.zeros(6), qdotf)
 
-            pd, _, Jv, _ = self.chain.fkin(qd_hit)
+            pd, Rd, Jv, Jw = self.chain.fkin(qd_hit)
             vd = Jv @ qddot_hit
+            wd = Jw @ qddot_hit
+            nd = self.get_paddle_normal(Rd)
 
         # Return home sequence
-        elif t < self.hit_time + self.return_time:
-            if t < self.hit_time + dt: # TODO: TENTATIVE FIX
-                self.return_time = 1 # TODO: MAKE DYNAMIC LIKE SELF.HIT_TIME
-            #TODO: DO ONLY ONCE
-            # _____________________
+        # elif t < self.hit_time + self.return_time:
+        #     if t < self.hit_time + dt: # TODO: TENTATIVE FIX
+        #         self.return_time = 4 # TODO: MAKE DYNAMIC LIKE SELF.HIT_TIME
+        #         self.return_q = self.newton_raphson(self.home_p, paddle_normal, self.hit_q)
+        #     #TODO: DO ONLY ONCE
+        #     # _____________________
 
-            R_rel = self.hit_rotation.T @ self.home_R
-            rot_axis, theta = axisangle_from_R(R_rel)
-            #________________________
+        #     # R_rel = self.hit_rotation.T @ self.home_R
+        #     # rot_axis, theta = axisangle_from_R(R_rel)
+        #     #________________________
 
 
-            # POSITION CALCULATION
-            pd, vd = spline(t - self.hit_time, self.return_time,
-                            self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
+        #     # POSITION CALCULATION
+        #     # pd, vd = spline(t - self.hit_time, self.return_time,
+        #     #                 self.hit_pos, self.home_p, desired_hit_velocity, np.zeros(3))
 
-            # print(pd)
-            # print(vd)
+        #     # print(pd)
+        #     # print(vd)
 
-            # ROTATION CALCULATION
+        #     # ROTATION CALCULATION
 
-            sr, srdot = goto(t - self.hit_time, self.return_time, 0, 1)
-            Rot = rodrigues_formula(rot_axis, theta * sr)
-            Rd = self.hit_rotation @ Rot
-            wd = self.hit_rotation @ (rot_axis * theta * srdot)
-        else:
-            pd = self.pd
-            vd = np.zeros(3)
-            Rd = self.Rd
-            wd = np.zeros(3)
+        #     qd_hit, qddot_hit = spline(t-self.hit_time, self.return_time, self.hit_q, self.return_q, qdotf, np.zeros(6))
+
+        #     # print(self.qd)
+        #     pd, Rd, Jv, Jw = self.chain.fkin(qd_hit)
+        #     vd = Jv @ qddot_hit
+        #     wd = Jw @ qddot_hit
+        #     nd = self.get_paddle_normal(Rd)
+
+        #     # sr, srdot = goto(t - self.hit_time, self.return_time, 0, 1)
+        #     # Rot = rodrigues_formula(rot_axis, theta * sr)
+        #     # Rd = self.hit_rotation @ Rot
+        #     # wd = self.hit_rotation @ (rot_axis * theta * srdot)
+        # else:
+        #     pd = self.pd
+        #     vd = np.zeros(3)
+        #     Rd = self.Rd
+        #     wd = np.zeros(3)
+        #     nd = np.zeros(3)
 
 
 
@@ -209,35 +223,35 @@ class Trajectory():
         qdlast = self.qd
         pdlast = self.pd
         Rdlast = self.Rd
+        ndlast = self.get_paddle_normal(Rdlast)
         pr, Rr, Jv, Jw = self.chain.fkin(qdlast)
+        nr = self.get_paddle_normal(Rr)
 
 
         #print("Desired Rotation Matrix:\n", Rd)
 
         # Position and rotation errors
         error_p = ep(pdlast, pr)
-        error_r = eR(Rdlast, Rr)
+        error_n = ep(ndlast, nr)
 
         # Adjusted velocities
         adjusted_vd = vd + (self.lam * error_p)
-        # adjusted_wd = (wd + (self.lam * error_r))[:2]
-        adjusted_wd = (wd + (self.lam * error_r))
-        combined_vwd = np.concatenate([adjusted_vd, adjusted_wd])
+        adjusted_nd = nd + (self.lam * error_n)
+        combined_vwd = np.concatenate([adjusted_vd, adjusted_nd])
 
         # Jacobian adjustments
-        # J_adjusted = self.adjust_jacobian(Jv, Jw)
-        J_adjusted = np.vstack([Jv, Jw])
-        J_p = J_adjusted[:3, :]
-        J_s = J_adjusted[3:, :]
-        J_pinv_p = np.linalg.pinv(J_p)
-        J_pinv_s = np.linalg.pinv(J_s)
+        J_adjusted = self.adjusted_jacobian(Jv, Jw, nd)
+        # J_p = J_adjusted[:3, :]
+        # J_s = J_adjusted[3:, :]
+        # J_pinv_p = np.linalg.pinv(J_p)
+        # J_pinv_s = np.linalg.pinv(J_s)
         J_pinv = np.linalg.pinv(J_adjusted)
 
         # Primary task
-        qddot_main = J_pinv_p @ adjusted_vd
+        # qddot_main = J_pinv_p @ adjusted_vd
 
         # Secondary task
-        qddot_secondary = J_pinv_s @ adjusted_wd
+        # qddot_secondary = J_pinv_s @ adjusted_wd
         N = J_adjusted.shape[1]
 
         # BASIC QDDOT CALCULATION
@@ -270,47 +284,41 @@ class Trajectory():
         self.tip_pose_pub.publish(self.tip_pose_msg)
         self.tip_vel_pub.publish(self.tip_vel_msg)
 
-
-    # Once we have at least two recorded positions of the ball, we can attempt kinematics
-        if len(self.ball_trajectory) > 1:
-            result = self.time_forZ(self.z_target)
-            if result is not None:
-                t_hit, x_hit, y_hit = result
-                # ddebuggs
-                # self.chain.node.get_logger().info(f"At z={self.z_target}, t={t_hit:.3f}s, x={x_hit:.3f}, y={y_hit:.3f}")
-
         return (self.qd, np.zeros_like(self.qd), self.pd, np.zeros(3), self.Rd, np.zeros(3))
         #For testing
         #return (qd, qddot, pd, vd, Rd, wd)
 
     # Newton Raphson
-    def newton_raphson(self, pgoal, Rgoal, q0):
-
-        # Collect the distance to goal and change in q every step!
-        pdistance = []
-        qstepsize = []
-
+    def newton_raphson(self, pgoal, ngoal, q0):
         # Number of steps to try.
         N = 100
 
         # Setting initial q
         q = q0
 
-        # IMPLEMENT THE NEWTON-RAPHSON ALGORITHM!
         for _ in range(N):
-            (pr, _, Jv, _) = self.chain.fkin(q)
-            jac = Jv #np.vstack((Jv, Jw))
-            q_new = q + np.linalg.pinv(jac) @ (pgoal - pr)
-            qstepsize.append(np.linalg.norm(q_new - q))
-            pdistance_curr = np.linalg.norm(pgoal - pr)
-            pdistance.append(pdistance_curr)
-            q = q_new
+            (pr, R, Jv, Jw) = self.chain.fkin(q)
+            nr = self.get_paddle_normal(R)
+            jac = self.adjusted_jacobian(Jv, Jw, nr)
+            p_error = pgoal - pr
+            n_error = ngoal - nr
+            combined_error = np.concatenate([p_error, n_error])
 
-        # Unwrap
+            q = q + np.linalg.pinv(jac) @ (combined_error)
+
+        # Unwrap q
         for i in range(len(q)):
             q[i] = fmod(q[i], 2*pi)
 
-        return q
+        # # Adjust q desired to closest joint value
+        q_closest = np.zeros(len(q))
+
+        for i in range(len(q)):
+            q_closest[i] = min([q[i] + 2*pi*k for k in range(-4, 4)],
+                                key=lambda angle: abs(self.qd[i] - angle))
+
+        print(q_closest)
+        return q_closest
 
 
     # TODO: MAKE THIS MORE SOPHISTICATED
@@ -332,35 +340,18 @@ class Trajectory():
         vx, vy, vz = velocity
         vec3 = Vector3(x=vx, y=vy, z=vz)
         return vec3
-    
+
 
     def ball_pos_callback(self, pos):
         pos_array = np.array([pos.x, pos.y, pos.z])
-        # Get current time
-        current_time = self.chain.node.get_clock().now().nanoseconds * 1e-9 
-        # Store the (time, position)
-        self.ball_trajectory.append((current_time, pos_array))
         self.ball_pos = pos_array
 
 
-    def time_forZ(self, z_target):
-        if len(self.ball_trajectory) < 2:
-            return None
-
-        #finding the initial conditions
-        (t0, p0) = self.ball_trajectory[0]
-        (t1, p1) = self.ball_trajectory[1]
-
-        x0, y0, z0 = p0
-        x1, y1, z1 = p1
-        dt = t1 - t0
-        if dt <= 0:
-            return None
-
-        #initial velocities
-        vx0 = (x1 - x0) / dt
-        vy0 = (y1 - y0) / dt
-        vz0 = (z1 - z0) / dt
+    def find_hit_positions(self, z_target):
+        p0 = self.ball_pos
+        x0, y0, z0 = tuple(p0)
+        v0 = self.ball_vel
+        vx0, vy0, vz0 = tuple(v0)
 
         # Kinematic parameters
         g = 9.81
@@ -387,10 +378,19 @@ class Trajectory():
         return (t_hit, x_hit, y_hit)
 
 
+    def ball_vel_callback(self, vel):
+        self.ball_vel = p_from_Point(vel)
+
+    def ball_vel_callback(self, vel):
+        self.ball_vel = p_from_Point(vel)
+
+    def get_paddle_normal(self, R):
+        return R[:, 1]
+
 
 def main(args=None):
     rclpy.init(args=args)
-    generator = GeneratorNode('generator', 200, Trajectory)
+    generator = GeneratorNode('generator', 300, Trajectory)
     generator.spin()
     generator.shutdown()
     rclpy.shutdown()
