@@ -367,15 +367,26 @@ class Trajectory():
         t_sol1 = (-b + np.sqrt(discriminant)) / (2*a)
         t_sol2 = (-b - np.sqrt(discriminant)) / (2*a)
 
-        # it only makes sense to choose the positiove time so well go with that
+        # Choose positive time solution
         t_candidates = [t for t in [t_sol1, t_sol2] if t > 0]
         if not t_candidates:
             return None
         t_hit = min(t_candidates)
+
+        # Compute the hit position
         x_hit = x0 + vx0 * t_hit
         y_hit = y0 + vy0 * t_hit
 
-        return (t_hit, x_hit, y_hit)
+        # Compute the velocity at t_hit:
+        # vx and vy remain constant, vz changes due to gravity
+        v_hit_x = vx0
+        v_hit_y = vy0
+        v_hit_z = vz0 - g * t_hit
+
+        self.hit_velocity = np.array([v_hit_x, v_hit_y, v_hit_z])
+
+        return (t_hit, x_hit, y_hit, self.hit_velocity)
+
 
 
     def ball_vel_callback(self, vel):
