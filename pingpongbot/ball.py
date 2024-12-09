@@ -38,13 +38,13 @@ class DemoNode(Node):
             durability=DurabilityPolicy.TRANSIENT_LOCAL, depth=1)
         self.marker_pub = self.create_publisher(MarkerArray,
                                         '/visualization_marker_array', quality)
-        self.ball_pos_pub = self.create_publisher(Point, "/ball_pos", 10)
-        self.ball_vel_pub = self.create_publisher(Point, "/ball_vel", 10)
+        self.ball_pos_pub = self.create_publisher(Point, "/ball_pos", 1)
+        self.ball_vel_pub = self.create_publisher(Point, "/ball_vel", 1)
 
         # Subscriptions
-        self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 100)
-        self.create_subscription(Vector3, "/tip_vel", self.tip_vel_callback, 100)
-        self.create_subscription(Bool, "/start", self.start_callback, 100)
+        self.create_subscription(Pose, "/tip_pose", self.tip_pose_callback, 1)
+        self.create_subscription(Vector3, "/tip_vel", self.tip_vel_callback, 1)
+        self.create_subscription(Bool, "/start", self.start_callback, 1)
 
         # Subscription variables
         self.tip_pos = np.zeros(3)
@@ -58,7 +58,7 @@ class DemoNode(Node):
         self.collision_tol = 0.1
         self.hit_timeout = 0
         self.wait_time = 0.0
-        self.gravity = np.array([0.0, 0.0, -1])
+        self.gravity = np.array([0.0, 0.0, 0.0])
 
         # Spawn the ball initially
         self.spawn_ball()
@@ -129,11 +129,14 @@ class DemoNode(Node):
         # Check for collision with paddle
         if self.check_hit() and self.hit_timeout <= 0:
             n = self.tip_R[:, 1]
+            print(n)
             v_rel = self.v - self.tip_vel
-            self.v = self.v - 2 * (v_rel @ n) * n
+            print(f"V rel: {v_rel}")
+            print(f"Tip pos: {self.tip_pos}")
+            self.v = self.v - (v_rel @ n) * n
             print(f"Tip velocity: {self.tip_vel}")
             print(f"ball velocity: {self.v}")
-            self.hit_timeout = 0.5
+            self.hit_timeout = 0.1
 
         self.hit_timeout -= self.dt
         self.marker.header.stamp  = self.now().to_msg()
@@ -145,7 +148,7 @@ class DemoNode(Node):
 
     def spawn_ball(self):
         # Respawn the ball at a random position and reset velocity
-        self.p = self.generate_random_position()
+        self.p = np.array([0.5, 0.5, 0.5]) #self.generate_random_position()
         self.v = np.array([0.0, 0.0, 0.0])
         self.hit_timeout = 0
 

@@ -1,6 +1,8 @@
+import time
 import rclpy
 import numpy as np
 import random
+from scipy.optimize import minimize
 
 from math import pi, sin, cos, acos, atan2, sqrt, fmod, exp
 
@@ -23,14 +25,14 @@ class Trajectory():
     def __init__(self, node):
 
         # Publishing
-        self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 100)
-        self.tip_vel_pub = node.create_publisher(Vector3, "/tip_vel", 100)
-        self.start_pub = node.create_publisher(Bool, "/start", 10)
+        self.tip_pose_pub = node.create_publisher(Pose, "/tip_pose", 1)
+        self.tip_vel_pub = node.create_publisher(Vector3, "/tip_vel", 1)
+        self.start_pub = node.create_publisher(Bool, "/start", 1)
         self.start_pub.publish(Bool())
 
         # Subscribing
-        node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 10)
-        node.create_subscription(Point, "/ball_vel", self.ball_vel_callback, 10)
+        node.create_subscription(Point, "/ball_pos", self.ball_pos_callback, 1)
+        node.create_subscription(Point, "/ball_vel", self.ball_vel_callback, 1)
 
         # Subscription variables
         # Store ball positions and times in a list
@@ -38,20 +40,24 @@ class Trajectory():
         self.ball_pos = np.ones(3)
         self.ball_vel = np.zeros(3)
 
-        self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
+        self.tip_chain = KinematicChain(node, 'world', 'tip', self.jointnames())
+        # self.
 
         self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
         self.q_centers = np.array([-pi/2, -pi/2, 0, -pi/2, 0, 0])
 
         # Initial position
         self.q0 = self.home_q
-        self.home_p, self.home_R, _, _  = self.chain.fkin(self.home_q)
+        self.home_p, self.home_R, _, _  = self.tip_chain.fkin(self.home_q)
         self.p0 = self.home_p
         self.R0 = self.home_R
         self.qdot0 = np.zeros(6)
+        self.qdotf = np.zeros(6)
+        self.paddle_hit_vel = np.zeros(3)
+        self.paddle_hit_normal = np.zeros(3)
 
         # Swing variables
-        self.hit_z = 0.1
+        self.hit_z = 0.5
         self.hit_time = float("inf")
         self.ball_hit_velocity = np.zeros(3)
         self.hit_pos = np.zeros(3)
@@ -66,11 +72,12 @@ class Trajectory():
         self.pd = self.p0
         self.Rd = self.R0
         self.nd = self.get_paddle_normal(self.R0)
+        self.qddot = np.zeros(3)
 
         # Tuning constants
         self.lam = 10
         self.lam_second = 15
-        self.gamma = 0
+        self.gamma = 0.1
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
         self.joint_weights = np.array([1, 1, 1, 1, 1, 1])
         self.weight_matrix = np.diag(self.joint_weights)
@@ -87,7 +94,7 @@ class Trajectory():
 
     def get_current_tool_normal(self):
         # get curr orientation matrix from forward kines
-        _, R_current, _, _ = self.chain.fkin(self.qd)
+        _, R_current, _, _ = self.tip_chain.fkin(self.qd)
         return R_current[:, 2]  #z-axis of the current rotation matrix
 
     def compute_rotation_from_normals(self, current_normal, target_normal):
@@ -107,6 +114,33 @@ class Trajectory():
 
         # Use Rodrigues formula to compute the rotation matrix
         return rodrigues_formula(rotation_axis, rotation_angle)
+
+
+    def collision_error(self, v_paddle, v_in, v_desired):
+        paddle_normal = v_paddle / np.linalg.norm(v_paddle)  # Normalize paddle normal to unit vector
+
+        # Relative velocity between ball and paddle
+        v_rel = v_in - v_paddle
+
+        # Ball velocity after collision (reflection)
+        v_after_collision = v_in - 2 * (v_rel @ paddle_normal) * paddle_normal
+
+        # Error is the difference between the desired and actual velocity after collision
+        error = np.linalg.norm(v_after_collision - v_desired)
+
+        return error
+
+    def calculate_paddle_velocity(self, v_in, v_desired):
+        v_paddle = - 0.5 * (v_in - v_desired)
+
+        # initial_guess = np.ones(3)
+
+        # result = minimize(self.collision_error, initial_guess, args=(v_in, v_desired), method='BFGS')
+
+        # # Extract the paddle velocity and normal from the result
+        # v_paddle = result.x
+
+        return v_paddle
 
 
 
@@ -137,67 +171,81 @@ class Trajectory():
 
 
     def evaluate(self, t, dt):
-        pd = self.pd
-        desired_ball_velocity = np.array([0, 0, 2])
-        paddle_hit_vel = 0.5 * (desired_ball_velocity - self.ball_hit_velocity)
-        paddle_normal = paddle_hit_vel / np.linalg.norm(paddle_hit_vel)
-        print(f"Paddle hit vel: {paddle_hit_vel}")
-        print(f"Paddle normal: {paddle_normal}")
 
-        _, _, Jvf, _ = self.chain.fkin(self.hit_q)
-        qdotf = np.linalg.pinv(Jvf) @ paddle_hit_vel
+        # Velocities cant be less than the negative of incoming velocities
+        desired_ball_velocity = np.array([0, 10, 3])
+        break_time = 2
+
+        # TODO: TESTING
+        self.hit_time = 1
+        self.hit_pos = np.array([0.5, 0.5, 0.5])
+        self.ball_hit_velocity = np.zeros(3)
 
         # Hit sequence
         if t - self.time_offset < self.hit_time:
-            if t < dt: # TODO:
-                # print("self.hit_rotation after assignment:\n", self.hit_rotation)
+            if t - self.time_offset < dt: # TODO:
+                self.paddle_hit_vel = self.calculate_paddle_velocity(self.ball_hit_velocity,
+                                                                desired_ball_velocity)
+                self.paddle_hit_vel = np.array([2.0, 0.0, -2.0])
+                self.paddle_hit_normal = self.paddle_hit_vel / np.linalg.norm(self.paddle_hit_vel)
 
-                self.hit_q = self.newton_raphson(self.hit_pos, paddle_normal, self.home_q)
+                _, _, Jvf, _ = self.tip_chain.fkin(self.hit_q)
+                self.qdotf = np.linalg.pinv(Jvf) @ self.paddle_hit_vel
+                print(self.hit_pos)
+                self.hit_q = self.newton_raphson(self.hit_pos, self.paddle_hit_normal, self.home_q)
 
+            if t - self.time_offset > self.hit_time - dt:
+                # Publishing
+                self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
+                self.tip_vel_msg = self.create_vel_vec(self.paddle_hit_vel)
+                self.tip_pose_pub.publish(self.tip_pose_msg)
+                self.tip_vel_pub.publish(self.tip_vel_msg)
 
             # qd calculation
-            qd_hit, qddot_hit = spline(t - self.time_offset, self.hit_time, self.q0, self.hit_q, self.qdot0, qdotf)
+            qd_hit, qddot_hit = spline(t - self.time_offset, self.hit_time, self.q0, self.hit_q, self.qdot0, self.qdotf)
 
-            pd, Rd, Jv, Jw = self.chain.fkin(qd_hit)
+            pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_hit)
             vd = Jv @ qddot_hit
             wd = Jw @ qddot_hit
             nd = self.get_paddle_normal(Rd)
 
-            # Post hit
-            if t - self.time_offset > self.hit_time - dt:
-                self.time_offset += self.hit_time
-                self.update_hit_parameters(self.hit_z)
-                self.q0 = self.hit_q
-                self.qdot0 = qdotf
-                print(f"ACTUAL FINAL HIT VEL: {self.vd}")
-                print(f"ACTUAL PADDLE NORMAL: {self.nd}")
-                return 
+        # elif t - self.time_offset < self.hit_time + break_time:
+        #     qd_hit, qddot_hit = spline(t - self.time_offset - self.hit_time, break_time, self.hit_q, self.home_q, self.qdotf, np.zeros(6))
+
+        #     pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_hit)
+        #     vd = Jv @ qddot_hit
+        #     wd = Jw @ qddot_hit
+        #     nd = self.get_paddle_normal(Rd)
+
+            # if  t - self.time_offset > break_time - dt:
+            #     # Next hit calculations
+            #     # print(f"INCOMING BALL VEL: {self.ball_hit_velocity}")
+            #     self.time_offset += self.hit_time
+            #     self.update_hit_parameters(self.hit_z, break_time)
+            #     self.q0 = self.qd
+            #     self.qdot0 = self.qddot
+            #     print(f"new hit time: {self.hit_time}")
+            #     print(t)
+            #     print(self.time_offset)
 
 
 
 
-
-
-
-        # TODO: TEMPORARY UNCHANGING ROTATION -- CHANGE
         # Kinematics
         qdlast = self.qd
         pdlast = self.pd
         Rdlast = self.Rd
         ndlast = self.get_paddle_normal(Rdlast)
-        pr, Rr, Jv, Jw = self.chain.fkin(qdlast)
+        pr, Rr, Jv, Jw = self.tip_chain.fkin(qdlast)
         nr = self.get_paddle_normal(Rr)
-
-
-        #print("Desired Rotation Matrix:\n", Rd)
 
         # Position and rotation errors
         error_p = ep(pdlast, pr)
         error_n = ep(ndlast, nr)
 
         # Adjusted velocities
-        adjusted_vd = vd + (self.lam * error_p)
-        adjusted_nd = nd + (self.lam * error_n)
+        adjusted_vd = vd + ((1 * self.lam * error_p) - (0.0 * error_n/dt))
+        adjusted_nd = nd - ((2 * self.lam * error_n) - (0.05 * error_n/dt))
         combined_vwd = np.concatenate([adjusted_vd, adjusted_nd])
 
         # Jacobian adjustments
@@ -233,18 +281,21 @@ class Trajectory():
         #     # qddot = qddot_hit + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
 
         qd = qdlast + dt * qddot
+        # print(f"qd: {qd}")
 
         # Update state
         self.qd = qd
         self.pd = pd
         self.Rd = Rd
         self.vd = vd
+        self.nd = nd
+        self.qddot = qddot
 
-        # Publishing
-        self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
-        self.tip_vel_msg = self.create_vel_vec(self.vd)
-        self.tip_pose_pub.publish(self.tip_pose_msg)
-        self.tip_vel_pub.publish(self.tip_vel_msg)
+        print(f"PADDLE POS: {self.pd}")
+        print(f"ACTUAL FINAL PADDLE VEL: {self.vd}")
+        print(f"ACTUAL PADDLE NORMAL: {self.nd}")
+        print(f"DESIRED PADDLE VELOCITY: {self.paddle_hit_vel}")
+        print(f"DESIRED PADDLE NORMAL: {self.paddle_hit_vel/np.linalg.norm(self.paddle_hit_vel)}")
 
         return (qd, qddot, pd, vd, Rd, wd)
 
@@ -257,7 +308,8 @@ class Trajectory():
         q = q0
 
         for _ in range(N):
-            (pr, R, Jv, Jw) = self.chain.fkin(q)
+            (pr, R, Jv, Jw) = self.tip_chain.fkin(q)
+            (pr, R, Jv, Jw) = self.tip_chain.fkin(q)
             nr = self.get_paddle_normal(R)
             jac = self.adjusted_jacobian(Jv, Jw, nr)
             p_error = pgoal - pr
@@ -277,7 +329,7 @@ class Trajectory():
             q_closest[i] = min([q[i] + 2*pi*k for k in range(-4, 4)],
                                 key=lambda angle: abs(self.qd[i] - angle))
 
-        print(q_closest)
+        # print(f"q_closest: {q_closest}")
         return q_closest
 
 
@@ -307,14 +359,14 @@ class Trajectory():
         self.ball_pos = pos_array
 
 
-    def update_hit_parameters(self, z_target):
+    def update_hit_parameters(self, z_target, break_time=0):
         p0 = self.ball_pos
-        x0, y0, z0 = list(p0)
         v0 = self.ball_vel
+        x0, y0, z0 = list(p0)
         vx0, vy0, vz0 = v0[0], v0[1], v0[2]
 
         # Kinematic parameters
-        g = -1
+        g = 0
         a = 0.5 * g
         b = vz0
         c = (z0 - z_target)
@@ -328,6 +380,7 @@ class Trajectory():
         t_candidates = [t for t in [t_sol1, t_sol2] if t > 0]
         if not t_candidates:
             return None
+        # TODO: FIGURE OUT HOW TO IMPLEMENT DELAY DIFFERENTLY
         t_hit = min(t_candidates)
 
         # Compute the hit position
@@ -342,7 +395,10 @@ class Trajectory():
         self.hit_time = t_hit
         self.hit_pos = np.array([x_hit, y_hit, self.hit_z])
 
-        return (t_hit, x_hit, y_hit, self.ball_hit_velocity)
+        # # TODO: REMOVE THIS IS TESTING
+        # self.hit_time = 2
+        # self.hit_pos = np.array([0.5, 0.5, 0.5])
+        # self.ball_hit_velocity = np.array([0, 0, 0])
 
 
 
@@ -355,7 +411,7 @@ class Trajectory():
 
 def main(args=None):
     rclpy.init(args=args)
-    generator = GeneratorNode('generator', 300, Trajectory)
+    generator = GeneratorNode('generator', 200, Trajectory)
     generator.spin()
     generator.shutdown()
     rclpy.shutdown()
