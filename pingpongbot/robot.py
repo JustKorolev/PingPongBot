@@ -43,6 +43,9 @@ class Trajectory():
         self.tip_chain = KinematicChain(node, 'world', 'tip', self.jointnames())
         # self.
 
+
+        #BALL AND BOWL
+        self.bowl_pos = np.array([1.5, 0.0, 0.0])
         # self.home_q = np.zeros(6)
         # self.home_q = np.array([0, -pi/2, pi/2, pi/2, 0, 0])
         self.home_q = np.array([0, 0, -5*pi/6, -pi, 0, 0])
@@ -339,6 +342,41 @@ class Trajectory():
     def ball_pos_callback(self, pos):
         pos_array = np.array([pos.x, pos.y, pos.z])
         self.ball_pos = pos_array
+
+
+    def find_min_Vi(p0, pfinal, g):
+
+        def v0_norm(T):
+            # Avoid division by zero
+            if T <= 0:
+                return np.inf
+            # Compute v0 for given T
+            v0 = (pfinal - p0 - 0.5 * g * (T**2)) / T
+            return np.linalg.norm(v0)
+
+        # Initial guess for T, idk what to put this 1?
+        T_guess = 1.0
+
+        res = minimize(v0_norm, x0=[T_guess], bounds=[(1e-3, None)])
+
+        if not res.success:
+            raise RuntimeError("Optimization failed: " + res.message)
+
+        T_opt = res.x[0]
+        v0_opt = (pfinal - p0 - 0.5*g*(T_opt**2)) / T_opt
+
+        return T_opt, v0_opt
+
+
+    def test_find_min_Vi(self):
+        p0 = self.ball_pos
+        pfinal = self.bowl_pos
+        g = np.array([0.0, 0.0, -9.81])
+
+        T_opt, v0_opt = self.find_min_Vi(p0, pfinal, g)
+        print("Optimal time of flight:", T_opt)
+        print("Optimal initial velocity:", v0_opt)
+        print("Minimum initial speed:", np.linalg.norm(v0_opt))
 
 
     def update_hit_parameters(self, z_target, break_time=0):
