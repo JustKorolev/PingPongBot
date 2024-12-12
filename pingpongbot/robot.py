@@ -43,7 +43,10 @@ class Trajectory():
         self.tip_chain = KinematicChain(node, 'world', 'tip', self.jointnames())
         # self.
 
-        self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
+        # self.home_q = np.zeros(6)
+        # self.home_q = np.array([0, -pi/2, pi/2, pi/2, 0, 0])
+        self.home_q = np.array([0, 0, -5*pi/6, -pi, 0, 0])
+        # self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
         self.q_centers = np.array([-pi/2, -pi/2, 0, -pi/2, 0, 0])
 
         # Initial position
@@ -79,7 +82,9 @@ class Trajectory():
         self.lam_second = 15
         self.gamma = 0.1
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
-        self.joint_weights = np.array([1, 1, 1, 1, 1, 1])
+        self.max_joint_vels = np.array([3, 4, 5, 6, 7, 8])
+        self.joint_weights = np.ones(6) / self.max_joint_vels**2
+        print(self.joint_weights)
         self.weight_matrix = np.diag(self.joint_weights)
 
 
@@ -130,19 +135,6 @@ class Trajectory():
 
         return error
 
-    def calculate_paddle_velocity(self, v_in, v_desired):
-        v_paddle = - 0.5 * (v_in - v_desired)
-
-        # initial_guess = np.ones(3)
-
-        # result = minimize(self.collision_error, initial_guess, args=(v_in, v_desired), method='BFGS')
-
-        # # Extract the paddle velocity and normal from the result
-        # v_paddle = result.x
-
-        return v_paddle
-
-
 
     # def adjust_jacobian(self, Jv, Jw):
     #     J_combined = np.vstack((Jv, Jw))
@@ -173,33 +165,42 @@ class Trajectory():
     def evaluate(self, t, dt):
 
         # Velocities cant be less than the negative of incoming velocities
-        desired_ball_velocity = np.array([0, 10, 3])
+        desired_ball_velocity = np.array([0, 0, 0])
         break_time = 2
 
         # TODO: TESTING
-        self.hit_time = 1
-        self.hit_pos = np.array([0.5, 0.5, 0.5])
+        self.hit_time = 3
+        self.hit_pos = np.array([-0.5, 0.5, 0.5])
         self.ball_hit_velocity = np.zeros(3)
 
         # Hit sequence
         if t - self.time_offset < self.hit_time:
             if t - self.time_offset < dt: # TODO:
-                self.paddle_hit_vel = self.calculate_paddle_velocity(self.ball_hit_velocity,
-                                                                desired_ball_velocity)
-                self.paddle_hit_vel = np.array([2.0, 0.0, -2.0])
+                self.paddle_hit_vel = np.array([1, 1, 1])
                 self.paddle_hit_normal = self.paddle_hit_vel / np.linalg.norm(self.paddle_hit_vel)
 
+                self.hit_q = self.newton_raphson(self.hit_pos, self.paddle_hit_normal, self.home_q)
                 _, _, Jvf, _ = self.tip_chain.fkin(self.hit_q)
                 self.qdotf = np.linalg.pinv(Jvf) @ self.paddle_hit_vel
-                print(self.hit_pos)
-                self.hit_q = self.newton_raphson(self.hit_pos, self.paddle_hit_normal, self.home_q)
+                self.hit_time = self.calculate_sequence_time(self.q0, self.hit_q)
 
             if t - self.time_offset > self.hit_time - dt:
                 # Publishing
                 self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
-                self.tip_vel_msg = self.create_vel_vec(self.paddle_hit_vel)
+                self.tip_vel_msg = self.create_vel_vec(self.vd)
                 self.tip_pose_pub.publish(self.tip_pose_msg)
                 self.tip_vel_pub.publish(self.tip_vel_msg)
+
+                print(f"ACTUAL FINAL PADDLE VEL: {self.vd}")
+                print(f"ACTUAL PADDLE NORMAL: {self.nd}")
+                print(f"ACTUAL HIT POSITION: {self.pd}")
+                print(f"ACTUAL JOINT POSITION: {self.qd}")
+                print(f"DESIRED PADDLE VELOCITY: {self.paddle_hit_vel}")
+                print(f"DESIRED PADDLE NORMAL: {self.paddle_hit_normal}")
+                print(f"DESIRED HIT POSITION: {self.hit_pos}")
+                print(f"DESIRED JOINT VELOCITY: {self.self.qf}")
+
+
 
             # qd calculation
             qd_hit, qddot_hit = spline(t - self.time_offset, self.hit_time, self.q0, self.hit_q, self.qdot0, self.qdotf)
@@ -209,24 +210,17 @@ class Trajectory():
             wd = Jw @ qddot_hit
             nd = self.get_paddle_normal(Rd)
 
-        # elif t - self.time_offset < self.hit_time + break_time:
-        #     qd_hit, qddot_hit = spline(t - self.time_offset - self.hit_time, break_time, self.hit_q, self.home_q, self.qdotf, np.zeros(6))
+        elif t - self.time_offset < self.hit_time + break_time:
+            qd_hit, qddot_hit = spline(t - self.time_offset - self.hit_time, break_time, self.hit_q, self.home_q, self.qdotf, np.zeros(6))
 
-        #     pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_hit)
-        #     vd = Jv @ qddot_hit
-        #     wd = Jw @ qddot_hit
-        #     nd = self.get_paddle_normal(Rd)
+            pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_hit)
+            vd = Jv @ qddot_hit
+            wd = Jw @ qddot_hit
+            nd = self.get_paddle_normal(Rd)
 
-            # if  t - self.time_offset > break_time - dt:
-            #     # Next hit calculations
-            #     # print(f"INCOMING BALL VEL: {self.ball_hit_velocity}")
-            #     self.time_offset += self.hit_time
-            #     self.update_hit_parameters(self.hit_z, break_time)
-            #     self.q0 = self.qd
-            #     self.qdot0 = self.qddot
-            #     print(f"new hit time: {self.hit_time}")
-            #     print(t)
-            #     print(self.time_offset)
+        else:
+            return
+
 
 
 
@@ -239,13 +233,13 @@ class Trajectory():
         pr, Rr, Jv, Jw = self.tip_chain.fkin(qdlast)
         nr = self.get_paddle_normal(Rr)
 
-        # Position and rotation errors
+        # Position and normal errors
         error_p = ep(pdlast, pr)
         error_n = ep(ndlast, nr)
 
         # Adjusted velocities
-        adjusted_vd = vd + ((1 * self.lam * error_p) - (0.0 * error_n/dt))
-        adjusted_nd = nd - ((2 * self.lam * error_n) - (0.05 * error_n/dt))
+        adjusted_vd = vd + ((2*self.lam * error_p) - (0.0 * error_n/dt))
+        adjusted_nd = nd - ((2*self.lam * error_n) - (0.0 * error_n/dt))
         combined_vwd = np.concatenate([adjusted_vd, adjusted_nd])
 
         # Jacobian adjustments
@@ -270,15 +264,13 @@ class Trajectory():
         qddot = jac_winv @ combined_vwd
 
         # QDDOT WITH JOINT WEIGHTING MATRIX
-        # qddot = self.weight_matrix @ jac_winv.T @\
-        #     np.linalg.pinv(jac_winv @ self.weight_matrix @ jac_winv.T) @ combined_vwd
+        # jac_weighted = self.weight_matrix @ jac_winv.T @\
+        #     np.linalg.pinv(jac_winv @ self.weight_matrix @ jac_winv.T)
+        # qddot = np.linalg.pinv(self.weight_matrix) @ jac_winv.T @ \
+        #        np.linalg.pinv(jac_winv @ np.linalg.pinv(self.weight_matrix) @ jac_winv.T) @ combined_vwd
 
-        # MORE SOPHISTICATED QDDOT CALCULATIONS
-        # if not (t < self.hit_time):
-        #     qddot = qddot_main + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
-        # else:
-        #     qddot = J_pinv @ combined_vwd
-        #     # qddot = qddot_hit + (np.eye(N) - J_pinv_p @ J_p) @ qddot_secondary
+
+
 
         qd = qdlast + dt * qddot
         # print(f"qd: {qd}")
@@ -291,11 +283,11 @@ class Trajectory():
         self.nd = nd
         self.qddot = qddot
 
-        print(f"PADDLE POS: {self.pd}")
-        print(f"ACTUAL FINAL PADDLE VEL: {self.vd}")
-        print(f"ACTUAL PADDLE NORMAL: {self.nd}")
-        print(f"DESIRED PADDLE VELOCITY: {self.paddle_hit_vel}")
-        print(f"DESIRED PADDLE NORMAL: {self.paddle_hit_vel/np.linalg.norm(self.paddle_hit_vel)}")
+        # print(f"PADDLE POS: {self.pd}")
+        # print(f"ACTUAL FINAL PADDLE VEL: {self.vd}")
+        # print(f"ACTUAL PADDLE NORMAL: {self.nd}")
+        # print(f"DESIRED PADDLE VELOCITY: {self.paddle_hit_vel}")
+        # print(f"DESIRED PADDLE NORMAL: {self.paddle_hit_vel/np.linalg.norm(self.paddle_hit_vel)}")
 
         return (qd, qddot, pd, vd, Rd, wd)
 
@@ -309,7 +301,6 @@ class Trajectory():
 
         for _ in range(N):
             (pr, R, Jv, Jw) = self.tip_chain.fkin(q)
-            (pr, R, Jv, Jw) = self.tip_chain.fkin(q)
             nr = self.get_paddle_normal(R)
             jac = self.adjusted_jacobian(Jv, Jw, nr)
             p_error = pgoal - pr
@@ -322,23 +313,14 @@ class Trajectory():
         for i in range(len(q)):
             q[i] = fmod(q[i], 2*pi)
 
-        # # Adjust q desired to closest joint value
-        q_closest = np.zeros(len(q))
-
-        for i in range(len(q)):
-            q_closest[i] = min([q[i] + 2*pi*k for k in range(-4, 4)],
-                                key=lambda angle: abs(self.qd[i] - angle))
-
-        # print(f"q_closest: {q_closest}")
-        return q_closest
+        return q
 
 
     # TODO: MAKE THIS MORE SOPHISTICATED
-    def calculate_sequence_time(self, q0, qf, qddot0, qddotf):
-        # TODO: THIS IS VERY JANK
-        # avg_qddot = np.linalg.norm(qddotf - qddot0) / 4
-        # print(np.linalg.norm((qf - q0)) / avg_qddot)
-        return np.linalg.norm((qf - q0)) / 3 # TODO NEEDS WORK
+    def calculate_sequence_time(self, q0, qf):
+        q_diff_list = list(qf - q0)
+        max_q_diff = max(q_diff_list)
+        return max_q_diff / self.max_joint_vels[q_diff_list.index(max_q_diff)]
 
 
     # Takes a numpy array position and R matrix to produce a ROS pose msg
