@@ -58,7 +58,7 @@ class DemoNode(Node):
         self.collision_tol = 0.1
         self.hit_timeout = 0
         self.wait_time = 0.0
-        self.gravity = np.array([0.0, 0.0, 0.0])
+        self.gravity = np.array([0.0, 0.0, -1.0])
 
         # Spawn the ball initially
         self.spawn_ball()
@@ -116,7 +116,6 @@ class DemoNode(Node):
                 self.spawn_ball()
 
         else:
-            self.a = self.gravity
             self.v += self.dt * self.a
             self.p += self.dt * self.v
 
@@ -125,6 +124,7 @@ class DemoNode(Node):
                 self.p[2] = self.radius
                 self.v = np.zeros(3)
                 self.wait_time = 1.0
+                print(f"Final ball position: {self.p}")
 
         # Check for collision with paddle
         if self.check_hit() and self.hit_timeout <= 0:
@@ -136,6 +136,7 @@ class DemoNode(Node):
             self.v = self.v - (v_rel @ n) * n
             print(f"Tip velocity: {self.tip_vel}")
             print(f"ball velocity: {self.v}")
+            self.a = self.gravity
             self.hit_timeout = 0.1
 
         self.hit_timeout -= self.dt
@@ -150,6 +151,7 @@ class DemoNode(Node):
         # Respawn the ball at a random position and reset velocity
         self.p = np.array([0.5, 0.5, 0.5]) #self.generate_random_position()
         self.v = np.array([0.0, 0.0, 0.0])
+        self.a = np.zeros(3)
         self.hit_timeout = 0
 
     def tip_pose_callback(self, pose):

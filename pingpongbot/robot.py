@@ -47,8 +47,8 @@ class Trajectory():
         #BALL AND BOWL
         self.bowl_pos = np.array([1.5, 0.0, 0.0])
         # self.home_q = np.zeros(6)
-        # self.home_q = np.array([0, -pi/2, pi/2, pi/2, 0, 0])
-        self.home_q = np.array([0, 0, -5*pi/6, -pi, 0, 0])
+        self.home_q = np.array([0, -pi/2, pi/2, pi/2, 0, 0])
+        # self.home_q = np.array([0, 0, -5*pi/6, -pi, 0, 0])
         # self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
         self.q_centers = np.array([-pi/2, -pi/2, 0, -pi/2, 0, 0])
 
@@ -85,7 +85,7 @@ class Trajectory():
         self.lam_second = 15
         self.gamma = 0.1
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
-        self.max_joint_vels = np.array([3, 4, 5, 6, 7, 8])
+        self.max_joint_vels = np.array([4, 4, 4, 4, 4, 4])
         self.joint_weights = np.ones(6) / self.max_joint_vels**2
         print(self.joint_weights)
         self.weight_matrix = np.diag(self.joint_weights)
@@ -173,13 +173,15 @@ class Trajectory():
 
         # TODO: TESTING
         self.hit_time = 3
-        self.hit_pos = np.array([-0.5, 0.5, 0.5])
+        self.hit_pos = np.array([0.5, 0.5, 0.5])
         self.ball_hit_velocity = np.zeros(3)
+        ball_target_pos = np.array([2, 1, 0])
 
         # Hit sequence
         if t - self.time_offset < self.hit_time:
             if t - self.time_offset < dt: # TODO:
-                self.paddle_hit_vel = np.array([1, 1, 1])
+                # self.paddle_hit_vel = np.array([2, 2, 2])
+                self.paddle_hit_vel = self.calculate_min_paddle_vel(self.hit_pos, ball_target_pos, -1.0)
                 self.paddle_hit_normal = self.paddle_hit_vel / np.linalg.norm(self.paddle_hit_vel)
 
                 self.hit_q = self.newton_raphson(self.hit_pos, self.paddle_hit_normal, self.home_q)
@@ -201,7 +203,7 @@ class Trajectory():
                 print(f"DESIRED PADDLE VELOCITY: {self.paddle_hit_vel}")
                 print(f"DESIRED PADDLE NORMAL: {self.paddle_hit_normal}")
                 print(f"DESIRED HIT POSITION: {self.hit_pos}")
-                print(f"DESIRED JOINT VELOCITY: {self.self.qf}")
+                print(f"DESIRED JOINT POSITION: {self.hit_q}")
 
 
 
@@ -241,7 +243,7 @@ class Trajectory():
         error_n = ep(ndlast, nr)
 
         # Adjusted velocities
-        adjusted_vd = vd + ((2*self.lam * error_p) - (0.0 * error_n/dt))
+        adjusted_vd = vd + ((4*self.lam * error_p) - (0.0 * error_n/dt))
         adjusted_nd = nd - ((2*self.lam * error_n) - (0.0 * error_n/dt))
         combined_vwd = np.concatenate([adjusted_vd, adjusted_nd])
 
@@ -294,6 +296,17 @@ class Trajectory():
 
         return (qd, qddot, pd, vd, Rd, wd)
 
+
+    def calculate_shortest_angle(self, q0, qf):
+        angle_diff = qf - q0
+
+        wrapped_delta = fmod(angle_diff + pi, 2*pi) - pi
+
+        shortest_angle = q0 + wrapped_delta
+
+        return shortest_angle
+
+
     # Newton Raphson
     def newton_raphson(self, pgoal, ngoal, q0):
         # Number of steps to try.
@@ -315,6 +328,8 @@ class Trajectory():
         # Unwrap q
         for i in range(len(q)):
             q[i] = fmod(q[i], 2*pi)
+
+            q[i] = self.calculate_shortest_angle(self.qd[i], q[i])
 
         return q
 
@@ -344,7 +359,7 @@ class Trajectory():
         self.ball_pos = pos_array
 
 
-    def find_min_Vi(p0, pfinal, g):
+    def calculate_min_paddle_vel(self, p0, pfinal, g):
 
         def v0_norm(T):
             # Avoid division by zero
@@ -354,26 +369,27 @@ class Trajectory():
             v0 = (pfinal - p0 - 0.5 * g * (T**2)) / T
             return np.linalg.norm(v0)
 
-        # Initial guess for T, idk what to put this 1?
-        T_guess = 1.0
+        # Initial guess for T
+        T_guess = 1
 
-        res = minimize(v0_norm, x0=[T_guess], bounds=[(1e-3, None)])
+        res = minimize(v0_norm, x0=[T_guess], bounds=[(10e-5, 10)])
 
-        if not res.success:
-            raise RuntimeError("Optimization failed: " + res.message)
+        # if not res.success:
+        #     raise RuntimeError("Optimization failed: " + res.message)
 
         T_opt = res.x[0]
-        v0_opt = (pfinal - p0 - 0.5*g*(T_opt**2)) / T_opt
+        min_paddle_vel = (pfinal - p0 - 0.5*g*(T_opt**2)) / T_opt
 
-        return T_opt, v0_opt
+        return min_paddle_vel
 
 
+    # TODO: REMOVE
     def test_find_min_Vi(self):
         p0 = self.ball_pos
         pfinal = self.bowl_pos
         g = np.array([0.0, 0.0, -9.81])
 
-        T_opt, v0_opt = self.find_min_Vi(p0, pfinal, g)
+        T_opt, v0_opt = self.calculate_min_paddle_vel(p0, pfinal, g)
         print("Optimal time of flight:", T_opt)
         print("Optimal initial velocity:", v0_opt)
         print("Minimum initial speed:", np.linalg.norm(v0_opt))
