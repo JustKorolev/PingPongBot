@@ -105,7 +105,7 @@ class Trajectory():
     def evaluate(self, t, dt):
 
         # TODO: TESTING
-        self.hit_pos = np.array([0.2, 0.2, 0.2]) # Robot reach radius is 1.3m
+        self.hit_pos = np.array([-0.3, -0.7, 0.5]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
         ball_target_pos = np.array([2, -3, 0])
         g = np.array([0.0, 0.0, -1.0])  # Adjust magnitude as needed, e.g., -9.81 for real gravity
