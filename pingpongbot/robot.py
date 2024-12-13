@@ -77,8 +77,8 @@ class Trajectory():
         # Tuning constants
         self.lam = 10
         self.lam_second = 15
-        self.gamma = 0.2
-        self.repulsion_const = 1
+        self.gamma = 0.1
+        self.repulsion_const = 0
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
         self.max_joint_vels = np.array([2, 2, 2, 2, 2, 2])
         self.joint_weights = np.ones(6) / self.max_joint_vels**2
@@ -104,6 +104,7 @@ class Trajectory():
     def evaluate(self, t, dt):
 
         # TODO: TESTING
+        self.hit_pos = np.array([0.8, 0.8, -0.7]) # Robot reach radius is 1.3m
         self.hit_pos = np.array([0.5, 0.5, 0.5]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
         ball_target_pos = np.array([10, -20, 0])
@@ -113,15 +114,20 @@ class Trajectory():
         if t - self.time_offset < self.hit_time:
             if t - self.time_offset < dt:
 
+                if self.hit_pos[2] < 0:
+                    self.repulsion_const = 1000
+                else:
+                    self.repulsion_const = 20
+
                 if np.linalg.norm(self.hit_pos) > self.max_reach_rad:
                     print("WARNING: OBJECT OUTSIDE OF WORKSPACE. ROBOT WILL NOT REACH.")
 
                 # Calculate the required paddle velocity and normal to hit ball in basket
                 self.paddle_hit_vel = self.calculate_min_paddle_vel(self.hit_pos, ball_target_pos, g)
                 self.paddle_hit_normal = self.paddle_hit_vel / np.linalg.norm(self.paddle_hit_vel)
-                
+
                 #COMPUTTTTEEEEDDDD
-                
+
                 print(f"Computed Paddle Hit Velocity: {self.paddle_hit_vel}")
 
                 # Use newton raphson to converge to the final joint angles under task constraints
@@ -184,8 +190,8 @@ class Trajectory():
         error_n = ep(ndlast, nr)
 
         # Adjusted velocities
-        adjusted_vd = vd + ((4*self.lam * error_p) - (0.0 * error_n/dt))
-        adjusted_nd = nd - ((2*self.lam * error_n) - (0.0 * error_n/dt))
+        adjusted_vd = vd + ((self.lam * error_p) - (0.0 * error_n/dt))
+        adjusted_nd = nd - ((self.lam * error_n) - (0.0 * error_n/dt))
         combined_vnd = np.concatenate([adjusted_vd, adjusted_nd])
 
         # Jacobian adjustments
@@ -210,6 +216,17 @@ class Trajectory():
         qddot = jac_winv @ combined_vnd +\
                     (np.eye(N) - jac_winv @ Jp) @ qsdot
 
+        # print((np.eye(N) - jac_winv @ Jp) @ qsdot)
+
+        # QDDOT WITH JOINT WEIGHTING MATRIX
+        # jac_weighted = self.weight_matrix @ jac_winv.T @\
+        #     np.linalg.pinv(jac_winv @ self.weight_matrix @ jac_winv.T)
+        # qddot = np.linalg.pinv(self.weight_matrix) @ jac_winv.T @ \
+        #        np.linalg.pinv(jac_winv @ np.linalg.pinv(self.weight_matrix) @ jac_winv.T) @ combined_vwd
+
+
+
+
         qd = qdlast + dt * qddot
 
         # Update state
@@ -225,25 +242,24 @@ class Trajectory():
 
     def repulsion(self, q):
         # Compute the wrist and elbow points.
-        (p_elbow, _, _, _) = self.elbow_chain.fkin(q[:3])  # 3 joints
+        (p_elbow, _, _, _) = self.elbow_chain.fkin(q[:3])  # 6 joints
         (p_shoulder, _, Jv, Jw) = self.shoulder_lift_chain.fkin(q[:2])  # 2 joints
 
         # Calculate "distance" between elbow and ground
-        distance_to_ground = p_elbow[2]
+        distance_to_ground = p_shoulder[2]
 
         F = np.array([0, 0, np.e**(-distance_to_ground + 1)])
 
         # Map the repulsion force acting at parm to the equivalent force
         # and torque actiing at the wrist point.
         Fwrist = F
-        print(Fwrist.round(2))
-        Twrist = np.cross(p_shoulder-p_elbow, F)
+        Twrist = np.cross(p_shoulder - p_elbow , F)
 
         # Convert the force/torque to joint torques (J^T).
         tau = np.vstack((Jv, Jw)).T @ np.concatenate((Fwrist, Twrist))
 
         # Return the 2 joint torques as part of the 6 full joints.
-        return np.concatenate((tau, np.zeros(4)))
+        return np.concatenate((-tau, np.zeros(4)))
 
 
     def calculate_shortest_angle(self, q0, qf):
