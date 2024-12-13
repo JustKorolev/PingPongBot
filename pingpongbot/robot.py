@@ -35,18 +35,14 @@ class Trajectory():
         node.create_subscription(Point, "/ball_vel", self.ball_vel_callback, 1)
 
         # Subscription variables
-        # Store ball positions and times in a list
-        #We can modify this to whatever we desire, i think 0.5 makese sense
         self.ball_pos = np.ones(3)
         self.ball_vel = np.zeros(3)
 
+        # Forward kinematics chain
         self.tip_chain = KinematicChain(node, 'world', 'tip', self.jointnames())
-        # self.
-
 
         #BALL AND BOWL
         self.bowl_pos = np.array([1.5, 0.0, 0.0])
-        # self.home_q = np.zeros(6)
         self.home_q = np.array([0, -pi/2, pi/2, pi/2, 0, 0])
         # self.home_q = np.array([0, 0, -5*pi/6, -pi, 0, 0])
         # self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
@@ -58,21 +54,17 @@ class Trajectory():
         self.p0 = self.home_p
         self.R0 = self.home_R
         self.qdot0 = np.zeros(6)
-        self.qdotf = np.zeros(6)
         self.paddle_hit_vel = np.zeros(3)
         self.paddle_hit_normal = np.zeros(3)
 
         # Swing variables
-        self.hit_z = 0.5
         self.hit_time = float("inf")
-        self.ball_hit_velocity = np.zeros(3)
         self.hit_pos = np.zeros(3)
-        self.update_hit_parameters(self.hit_z)
-        self.return_time = float("inf")
         self.hit_q = np.zeros(6)
-        self.return_q = np.zeros(6)
+        self.hit_qdot = np.zeros(6)
         self.time_offset = 0
 
+        # Kinematics variables
         self.qd = self.q0
         self.vd = np.zeros(3)
         self.pd = self.p0
@@ -83,12 +75,14 @@ class Trajectory():
         # Tuning constants
         self.lam = 10
         self.lam_second = 15
-        self.gamma = 0.1
+        self.gamma = 0.25
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
-        self.max_joint_vels = np.array([4, 4, 4, 4, 4, 4])
+        self.max_joint_vels = np.array([2, 2, 2, 2, 2, 2])
         self.joint_weights = np.ones(6) / self.max_joint_vels**2
-        print(self.joint_weights)
         self.weight_matrix = np.diag(self.joint_weights)
+
+        # Robot parameters
+        self.max_reach_rad = 1.3
 
 
 
@@ -96,66 +90,6 @@ class Trajectory():
         return ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
-    def get_target_surface_normal(self):
-    #Target normal is along the z-axis in the world frame? Double check this
-        return nz()
-
-    def get_current_tool_normal(self):
-        # get curr orientation matrix from forward kines
-        _, R_current, _, _ = self.tip_chain.fkin(self.qd)
-        return R_current[:, 2]  #z-axis of the current rotation matrix
-
-    def compute_rotation_from_normals(self, current_normal, target_normal):
-        current_normal = current_normal / np.linalg.norm(current_normal)
-        target_normal = target_normal / np.linalg.norm(target_normal)
-
-        # Compute the rotation axis and angle
-        rotation_axis = np.cross(current_normal, target_normal)
-        rotation_angle = np.arccos(np.clip(np.dot(current_normal, target_normal), -1.0, 1.0))
-
-        # Handle edge cases (normals are parallel or anti-parallel)
-        if np.linalg.norm(rotation_axis) < 1e-6:
-            # Parallel normals
-            return Reye()
-        rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
-        # Normalize the axis
-
-        # Use Rodrigues formula to compute the rotation matrix
-        return rodrigues_formula(rotation_axis, rotation_angle)
-
-
-    def collision_error(self, v_paddle, v_in, v_desired):
-        paddle_normal = v_paddle / np.linalg.norm(v_paddle)  # Normalize paddle normal to unit vector
-
-        # Relative velocity between ball and paddle
-        v_rel = v_in - v_paddle
-
-        # Ball velocity after collision (reflection)
-        v_after_collision = v_in - 2 * (v_rel @ paddle_normal) * paddle_normal
-
-        # Error is the difference between the desired and actual velocity after collision
-        error = np.linalg.norm(v_after_collision - v_desired)
-
-        return error
-
-
-    # def adjust_jacobian(self, Jv, Jw):
-    #     J_combined = np.vstack((Jv, Jw))
-
-    #     # get the Surface Normals
-    #     target_normal = self.get_target_surface_normal()
-    #     current_normal = self.get_current_tool_normal()
-    #     #Rotation Matrix to Align the Normals
-    #     R_o = self.compute_rotation_from_normals(current_normal, target_normal)
-    #     R_full = np.block([
-    #         [R_o,           np.zeros((3, 3))],
-    #         [np.zeros((3, 3)),            R_o]])
-    #     # Rotate the Jacobian
-    #     J_rotated = R_full @ J_combined
-    #     # Remove the last row of the Jacobian
-    #     J_adjusted = J_rotated[:-1, :]
-
-    #     return J_adjusted
 
     def adjusted_jacobian(self, Jv, Jw, nr):
         n_cross = crossmat(nr)
@@ -164,38 +98,41 @@ class Trajectory():
         return J_adjusted
 
 
-
     def evaluate(self, t, dt):
 
-        # Velocities cant be less than the negative of incoming velocities
-        desired_ball_velocity = np.array([0, 0, 0])
-        break_time = 2
-
         # TODO: TESTING
-        self.hit_time = 3
-        self.hit_pos = np.array([0.5, 0.5, 0.5])
+        self.hit_pos = np.array([0.95, 0.95, 0.95]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
-        ball_target_pos = np.array([2, 1, 0])
+        ball_target_pos = np.array([2, -2, 0])
 
         # Hit sequence
         if t - self.time_offset < self.hit_time:
-            if t - self.time_offset < dt: # TODO:
-                # self.paddle_hit_vel = np.array([2, 2, 2])
+            if t - self.time_offset < dt:
+
+                if np.linalg.norm(self.hit_pos) > self.max_reach_rad:
+                    print("WARNING: OBJECT OUTSIDE OF WORKSPACE. ROBOT WILL NOT REACH.")
+
+                # Calculate the required paddle velocity and normal to hit ball in basket
                 self.paddle_hit_vel = self.calculate_min_paddle_vel(self.hit_pos, ball_target_pos, -1.0)
                 self.paddle_hit_normal = self.paddle_hit_vel / np.linalg.norm(self.paddle_hit_vel)
 
+                # Use newton raphson to converge to the final joint angles under task constraints
                 self.hit_q = self.newton_raphson(self.hit_pos, self.paddle_hit_normal, self.home_q)
                 _, _, Jvf, _ = self.tip_chain.fkin(self.hit_q)
-                self.qdotf = np.linalg.pinv(Jvf) @ self.paddle_hit_vel
+                self.hit_qdot = np.linalg.pinv(Jvf) @ self.paddle_hit_vel
+
+                # Calculate the trajectory time
                 self.hit_time = self.calculate_sequence_time(self.q0, self.hit_q)
 
             if t - self.time_offset > self.hit_time - dt:
-                # Publishing
+                # Publishing at moment before impact
                 self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
                 self.tip_vel_msg = self.create_vel_vec(self.vd)
                 self.tip_pose_pub.publish(self.tip_pose_msg)
                 self.tip_vel_pub.publish(self.tip_vel_msg)
 
+
+                # TODO: TROUBLESHOOTING VALUES AT IMPACT
                 print(f"ACTUAL FINAL PADDLE VEL: {self.vd}")
                 print(f"ACTUAL PADDLE NORMAL: {self.nd}")
                 print(f"ACTUAL HIT POSITION: {self.pd}")
@@ -205,30 +142,26 @@ class Trajectory():
                 print(f"DESIRED HIT POSITION: {self.hit_pos}")
                 print(f"DESIRED JOINT POSITION: {self.hit_q}")
 
+            # qd calculation using trajectory in joint space
+            qd_hit, qddot_hit = spline(t - self.time_offset, self.hit_time, self.q0, self.hit_q, self.qdot0, self.hit_qdot)
 
-
-            # qd calculation
-            qd_hit, qddot_hit = spline(t - self.time_offset, self.hit_time, self.q0, self.hit_q, self.qdot0, self.qdotf)
-
+            # Calculating robot values using forward kinematics
             pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_hit)
             vd = Jv @ qddot_hit
             wd = Jw @ qddot_hit
             nd = self.get_paddle_normal(Rd)
 
-        elif t - self.time_offset < self.hit_time + break_time:
-            qd_hit, qddot_hit = spline(t - self.time_offset - self.hit_time, break_time, self.hit_q, self.home_q, self.qdotf, np.zeros(6))
-
-            pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_hit)
-            vd = Jv @ qddot_hit
-            wd = Jw @ qddot_hit
+        # Return home sequence
+        # TODO: CHECK WHY ROBOT SOMETIMES DOESNT RETURN TO CORRECT HOME ANGLES
+        elif t - self.time_offset < 2*self.hit_time:
+            qd_return, qddot_return = spline(t - self.time_offset - self.hit_time, self.hit_time, self.hit_q, self.home_q, self.hit_qdot, np.zeros(6))
+            pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_return)
+            vd = Jv @ qddot_return
+            wd = Jw @ qddot_return
             nd = self.get_paddle_normal(Rd)
 
         else:
             return
-
-
-
-
 
         # Kinematics
         qdlast = self.qd
@@ -278,7 +211,6 @@ class Trajectory():
 
 
         qd = qdlast + dt * qddot
-        # print(f"qd: {qd}")
 
         # Update state
         self.qd = qd
@@ -298,17 +230,16 @@ class Trajectory():
 
 
     def calculate_shortest_angle(self, q0, qf):
+
         angle_diff = qf - q0
-
         wrapped_delta = fmod(angle_diff + pi, 2*pi) - pi
-
         shortest_angle = q0 + wrapped_delta
 
         return shortest_angle
 
 
     # Newton Raphson
-    def newton_raphson(self, pgoal, ngoal, q0):
+    def newton_raphson(self, pgoal, ngoal, q0, shortest_angles=True):
         # Number of steps to try.
         N = 100
 
@@ -329,16 +260,16 @@ class Trajectory():
         for i in range(len(q)):
             q[i] = fmod(q[i], 2*pi)
 
-            q[i] = self.calculate_shortest_angle(self.qd[i], q[i])
+            if shortest_angles:
+                q[i] = self.calculate_shortest_angle(self.q0[i], q[i])
 
         return q
 
 
-    # TODO: MAKE THIS MORE SOPHISTICATED
     def calculate_sequence_time(self, q0, qf):
         q_diff_list = list(qf - q0)
         max_q_diff = max(q_diff_list)
-        return max_q_diff / self.max_joint_vels[q_diff_list.index(max_q_diff)]
+        return 4*(max_q_diff)**0.5 / self.max_joint_vels[q_diff_list.index(max_q_diff)]
 
 
     # Takes a numpy array position and R matrix to produce a ROS pose msg
@@ -353,11 +284,9 @@ class Trajectory():
         vec3 = Vector3(x=vx, y=vy, z=vz)
         return vec3
 
-
     def ball_pos_callback(self, pos):
         pos_array = np.array([pos.x, pos.y, pos.z])
         self.ball_pos = pos_array
-
 
     def calculate_min_paddle_vel(self, p0, pfinal, g):
 
@@ -393,49 +322,6 @@ class Trajectory():
         print("Optimal time of flight:", T_opt)
         print("Optimal initial velocity:", v0_opt)
         print("Minimum initial speed:", np.linalg.norm(v0_opt))
-
-
-    def update_hit_parameters(self, z_target, break_time=0):
-        p0 = self.ball_pos
-        v0 = self.ball_vel
-        x0, y0, z0 = list(p0)
-        vx0, vy0, vz0 = v0[0], v0[1], v0[2]
-
-        # Kinematic parameters
-        g = 0
-        a = 0.5 * g
-        b = vz0
-        c = (z0 - z_target)
-
-        discriminant = b**2 - 4*a*c
-
-        t_sol1 = (-b + np.sqrt(discriminant)) / (2*a)
-        t_sol2 = (-b - np.sqrt(discriminant)) / (2*a)
-
-        # Choose positive time solution
-        t_candidates = [t for t in [t_sol1, t_sol2] if t > 0]
-        if not t_candidates:
-            return None
-        # TODO: FIGURE OUT HOW TO IMPLEMENT DELAY DIFFERENTLY
-        t_hit = min(t_candidates)
-
-        # Compute the hit position
-        x_hit = x0 + vx0 * t_hit
-        y_hit = y0 + vy0 * t_hit
-
-        # Compute the velocity at t_hit:
-        # vx and vy remain constant, vz changes due to gravity
-        v_hit_z = vz0 + g * t_hit
-
-        self.ball_hit_velocity = np.array([vx0, vy0, v_hit_z])
-        self.hit_time = t_hit
-        self.hit_pos = np.array([x_hit, y_hit, self.hit_z])
-
-        # # TODO: REMOVE THIS IS TESTING
-        # self.hit_time = 2
-        # self.hit_pos = np.array([0.5, 0.5, 0.5])
-        # self.ball_hit_velocity = np.array([0, 0, 0])
-
 
 
     def ball_vel_callback(self, vel):
