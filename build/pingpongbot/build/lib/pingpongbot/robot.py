@@ -40,8 +40,6 @@ class Trajectory():
 
         # Forward kinematics chain
         self.tip_chain = KinematicChain(node, 'world', 'tip', self.jointnames())
-        self.elbow_chain = KinematicChain(node, 'world', 'forearm_link', self.jointnames()[:-3])
-        self.shoulder_lift_chain = KinematicChain(node, 'world', 'upper_arm_link', self.jointnames()[:-4])
 
         #BALL AND BOWL
         self.bowl_pos = np.array([1.5, 0.0, 0.0])
@@ -77,8 +75,7 @@ class Trajectory():
         # Tuning constants
         self.lam = 10
         self.lam_second = 15
-        self.gamma = 0.2
-        self.repulsion_const = 1
+        self.gamma = 0.25
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
         self.max_joint_vels = np.array([2, 2, 2, 2, 2, 2])
         self.joint_weights = np.ones(6) / self.max_joint_vels**2
@@ -106,8 +103,7 @@ class Trajectory():
         # TODO: TESTING
         self.hit_pos = np.array([0.5, 0.5, 0.5]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
-        ball_target_pos = np.array([10, -20, 0])
-        g = np.array([0.0, 0.0, -1.0])  # Adjust magnitude as needed, e.g., -9.81 for real gravity
+        ball_target_pos = np.array([2, -2, 0])
 
         # Hit sequence
         if t - self.time_offset < self.hit_time:
@@ -117,12 +113,8 @@ class Trajectory():
                     print("WARNING: OBJECT OUTSIDE OF WORKSPACE. ROBOT WILL NOT REACH.")
 
                 # Calculate the required paddle velocity and normal to hit ball in basket
-                self.paddle_hit_vel = self.calculate_min_paddle_vel(self.hit_pos, ball_target_pos, g)
+                self.paddle_hit_vel = self.calculate_min_paddle_vel(self.hit_pos, ball_target_pos, -1.0)
                 self.paddle_hit_normal = self.paddle_hit_vel / np.linalg.norm(self.paddle_hit_vel)
-                
-                #COMPUTTTTEEEEDDDD
-                
-                print(f"Computed Paddle Hit Velocity: {self.paddle_hit_vel}")
 
                 # Use newton raphson to converge to the final joint angles under task constraints
                 self.hit_q = self.newton_raphson(self.hit_pos, self.paddle_hit_normal, self.home_q)
@@ -186,29 +178,37 @@ class Trajectory():
         # Adjusted velocities
         adjusted_vd = vd + ((4*self.lam * error_p) - (0.0 * error_n/dt))
         adjusted_nd = nd - ((2*self.lam * error_n) - (0.0 * error_n/dt))
-        combined_vnd = np.concatenate([adjusted_vd, adjusted_nd])
+        combined_vwd = np.concatenate([adjusted_vd, adjusted_nd])
 
         # Jacobian adjustments
-        Jp = self.adjusted_jacobian(Jv, Jw, nd)
-        Jp_pinv = np.linalg.pinv(Jp)
+        J_adjusted = self.adjusted_jacobian(Jv, Jw, nd)
+        # J_p = J_adjusted[:3, :]
+        # J_s = J_adjusted[3:, :]
+        # J_pinv_p = np.linalg.pinv(J_p)
+        # J_pinv_s = np.linalg.pinv(J_s)
+        J_pinv = np.linalg.pinv(J_adjusted)
 
         # Primary task
         # qddot_main = J_pinv_p @ adjusted_vd
 
         # Secondary task
-        qsdot = self.repulsion_const * self.repulsion(qdlast)
-        N = Jp.shape[0]
+        # qddot_secondary = J_pinv_s @ adjusted_wd
+        N = J_adjusted.shape[1]
 
-        # PRIMARY TASK: VELOCITY AND PADDLE ORIENTATION
-        jac_winv = np.linalg.pinv(Jp.T @ Jp +\
-                                np.diag(self.gamma_array)) @ Jp.T
-        # qddot = jac_winv @ combined_vnd
+        # BASIC QDDOT CALCULATION
+        # TODO: CONSIDER USING TARGETED-REMOVAL/BLENDING
+        jac_winv = np.linalg.pinv(J_adjusted.T @ J_adjusted +\
+                                np.diag(self.gamma_array)) @ J_adjusted.T
+        qddot = jac_winv @ combined_vwd
+
+        # QDDOT WITH JOINT WEIGHTING MATRIX
+        # jac_weighted = self.weight_matrix @ jac_winv.T @\
+        #     np.linalg.pinv(jac_winv @ self.weight_matrix @ jac_winv.T)
+        # qddot = np.linalg.pinv(self.weight_matrix) @ jac_winv.T @ \
+        #        np.linalg.pinv(jac_winv @ np.linalg.pinv(self.weight_matrix) @ jac_winv.T) @ combined_vwd
 
 
-        # PRIMARY TASK: VELOCITY AND PADDLE ORIENTATION
-        # SECONDARY TASK: REPULSION FROM FLOOR
-        qddot = jac_winv @ combined_vnd +\
-                    (np.eye(N) - jac_winv @ Jp) @ qsdot
+
 
         qd = qdlast + dt * qddot
 
@@ -220,30 +220,13 @@ class Trajectory():
         self.nd = nd
         self.qddot = qddot
 
+        # print(f"PADDLE POS: {self.pd}")
+        # print(f"ACTUAL FINAL PADDLE VEL: {self.vd}")
+        # print(f"ACTUAL PADDLE NORMAL: {self.nd}")
+        # print(f"DESIRED PADDLE VELOCITY: {self.paddle_hit_vel}")
+        # print(f"DESIRED PADDLE NORMAL: {self.paddle_hit_vel/np.linalg.norm(self.paddle_hit_vel)}")
+
         return (qd, qddot, pd, vd, Rd, wd)
-
-
-    def repulsion(self, q):
-        # Compute the wrist and elbow points.
-        (p_elbow, _, _, _) = self.elbow_chain.fkin(q[:3])  # 3 joints
-        (p_shoulder, _, Jv, Jw) = self.shoulder_lift_chain.fkin(q[:2])  # 2 joints
-
-        # Calculate "distance" between elbow and ground
-        distance_to_ground = p_elbow[2]
-
-        F = np.array([0, 0, np.e**(-distance_to_ground + 1)])
-
-        # Map the repulsion force acting at parm to the equivalent force
-        # and torque actiing at the wrist point.
-        Fwrist = F
-        print(Fwrist.round(2))
-        Twrist = np.cross(p_shoulder-p_elbow, F)
-
-        # Convert the force/torque to joint torques (J^T).
-        tau = np.vstack((Jv, Jw)).T @ np.concatenate((Fwrist, Twrist))
-
-        # Return the 2 joint torques as part of the 6 full joints.
-        return np.concatenate((tau, np.zeros(4)))
 
 
     def calculate_shortest_angle(self, q0, qf):
@@ -317,20 +300,27 @@ class Trajectory():
         Returns:
         - min_paddle_vel (array): Minimum initial velocity vector for the paddle [vx, vy, vz].
         """
+
         if weights is None:
             weights = np.array([1.0, 1.0, 1.0])  # Default to equal weights
 
         def v0_norm_debug(T):
             """
             Objective function to minimize weighted ||v0||.
-            Logs intermediate results for debugging.
+            Includes debug information for intermediate velocity and position.
             """
             if T <= 0:
                 return np.inf  # Avoid division by zero
             # Compute v0 for given T
             v0 = (pfinal - p0 - 0.5 * g * (T**2)) / T
-            # Weighted norm
+            # Compute weighted norm
             weighted_norm = np.sqrt(weights[0] * v0[0]**2 + weights[1] * v0[1]**2 + weights[2] * v0[2]**2)
+
+            # Compute the trajectory position at T
+            p_computed = p0 + v0 * T + 0.5 * g * (T**2)
+
+            # Debugging
+            print(f"T: {T}, v0: {v0}, ||v0||: {np.linalg.norm(v0)}, Computed Final Position: {p_computed}")
             return weighted_norm
 
         # Initial guess for T
@@ -348,24 +338,27 @@ class Trajectory():
 
         # Validate final position using kinematic equation
         p_computed = p0 + min_paddle_vel * T_opt + 0.5 * g * (T_opt**2)
-        position_error = p_computed - pfinal
+        position_error = np.linalg.norm(p_computed - pfinal)
 
-        # Debugging
-        print("\n=== Results ===")
+        print("\n=== Final Results ===")
         print(f"Optimal Time of Flight (T): {T_opt}")
         print(f"Optimal Initial Velocity (v0): {min_paddle_vel}")
         print(f"Computed Final Position: {p_computed}")
         print(f"Target Final Position: {pfinal}")
         print(f"Position Error: {position_error}")
 
+        if position_error > 1e-3:
+            print("Warning: Significant position error detected! Adjust weights or verify dynamics.")
+
         return min_paddle_vel
+
 
 
     # TODO: REMOVE
     def test_find_min_Vi(self):
         p0 = self.ball_pos
         pfinal = self.bowl_pos
-        g = np.array([0.0, 0.0, -1.0])
+        g = np.array([0.0, 0.0, -9.81])
 
         T_opt, v0_opt = self.calculate_min_paddle_vel(p0, pfinal, g)
         print("Optimal time of flight:", T_opt)

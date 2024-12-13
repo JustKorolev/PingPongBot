@@ -12,9 +12,6 @@ from visualization_msgs.msg     import MarkerArray
 
 from pingpongbot.utils.TransformHelpers import *
 
-#
-#   Demo Node Class
-#
 class DemoNode(Node):
     # Initialization.
     def __init__(self, name, rate):
@@ -41,7 +38,6 @@ class DemoNode(Node):
         self.tip_R = Reye()
 
         # Ball properties
-        #unsure about this aproach but essentially a small raduis for collision detection
         self.radius = 0.02
         self.visual_radius = 0.02
         self.collision_tol = 0.1
@@ -53,22 +49,18 @@ class DemoNode(Node):
         self.spawn_ball()
 
         diam = 2 * self.visual_radius
-        self.marker = Marker()
-        self.marker.header.frame_id  = "world"
-        self.marker.header.stamp     = self.get_clock().now().to_msg()
-        self.marker.action           = Marker.ADD
-        self.marker.ns               = "point"
-        self.marker.id               = 1
-        self.marker.type             = Marker.SPHERE
-        self.marker.pose.orientation = Quaternion()
-        self.marker.pose.position    = Point(x=self.p[0], y=self.p[1], z=self.p[2])
-        self.marker.scale            = Vector3(x = diam, y = diam, z = diam)
-        self.marker.color            = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8)
+        self.ball_marker = Marker()
+        self.ball_marker.header.frame_id  = "world"
+        self.ball_marker.header.stamp     = self.get_clock().now().to_msg()
+        self.ball_marker.action           = Marker.ADD
+        self.ball_marker.ns               = "point"
+        self.ball_marker.id               = 1
+        self.ball_marker.type             = Marker.SPHERE
+        self.ball_marker.pose.orientation = Quaternion()
+        self.ball_marker.pose.position    = Point(x=self.p[0], y=self.p[1], z=self.p[2])
+        self.ball_marker.scale            = Vector3(x = diam, y = diam, z = diam)
+        self.ball_marker.color            = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8)
 
-        # Create the marker array message.
-        self.markerarray = MarkerArray(markers = [self.marker])
-
-        # Basket properties
         self.basket_marker = Marker()
         self.basket_marker.header.frame_id = "world"
         self.basket_marker.header.stamp = self.get_clock().now().to_msg()
@@ -76,11 +68,14 @@ class DemoNode(Node):
         self.basket_marker.id = 2
         self.basket_marker.type = Marker.CYLINDER
         self.basket_marker.action = Marker.ADD
-        self.basket_marker.pose.position = Point(x=10.0, y=-20.0, z=0.0) # Adjust z to raise cylinder
+        self.basket_marker.pose.position = Point(x=2.0, y=-2.0, z=0.0)
         self.basket_marker.pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-        self.basket_marker.scale = Vector3(x=0.5, y=0.5, z=0.1)
+        self.basket_marker.scale = Vector3(x=0.5, y=0.5, z=1.0)  # Cylinder dimensions
         self.basket_marker.color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=0.8)
+
+        # Add the basket marker to the MarkerArray
         self.markerarray.markers.append(self.basket_marker)
+
 
         self.dt    = 1.0 / float(rate)
         self.t     = -self.dt
@@ -99,7 +94,6 @@ class DemoNode(Node):
         return self.start + Duration(seconds=self.t)
 
     def update(self):
-
         if not self.has_started:
             return
 
@@ -117,7 +111,6 @@ class DemoNode(Node):
             if self.wait_time <= 0.0:
                 # Time to respawn the ball
                 self.spawn_ball()
-
         else:
             self.v += self.dt * self.a
             self.p += self.dt * self.v
@@ -132,28 +125,47 @@ class DemoNode(Node):
         # Check for collision with paddle
         if self.check_hit() and self.hit_timeout <= 0:
             n = self.tip_R[:, 1]
-            print(n)
             v_rel = self.v - self.tip_vel
-            print(f"V rel: {v_rel}")
-            print(f"Tip pos: {self.tip_pos}")
             self.v = self.v - (v_rel @ n) * n
-            print(f"Tip velocity: {self.tip_vel}")
-            print(f"ball velocity: {self.v}")
             self.a = self.gravity
             self.hit_timeout = 0.1
 
         self.hit_timeout -= self.dt
-        self.marker.header.stamp  = self.now().to_msg()
+
+        # Update ball marker position
+        self.marker.header.stamp = self.now().to_msg()
         self.marker.pose.position.x = self.p[0]
         self.marker.pose.position.y = self.p[1]
         self.marker.pose.position.z = self.p[2]
-        self.basket_marker.header.stamp = self.now().to_msg()  # Update basket timestamp
+
+        # Update basket marker timestamp
+        self.basket_marker.header.stamp = self.now().to_msg()
+
+        # Log basket marker position for debugging
+        print(f"Basket position: ({self.basket_marker.pose.position.x}, "
+            f"{self.basket_marker.pose.position.y}, {self.basket_marker.pose.position.z})")
+
+        # Publish marker array
         self.marker_pub.publish(self.markerarray)
 
+        # Check for collision with paddle
+        if self.check_hit() and self.hit_timeout <= 0:
+            n = self.tip_R[:, 1]
+            v_rel = self.v - self.tip_vel
+            self.v = self.v - (v_rel @ n) * n
+            self.a = self.gravity
+            self.hit_timeout = 0.1
+
+        self.hit_timeout -= self.dt
+        self.ball_marker.header.stamp  = self.now().to_msg()
+        self.ball_marker.pose.position.x = self.p[0]
+        self.ball_marker.pose.position.y = self.p[1]
+        self.ball_marker.pose.position.z = self.p[2]
+        self.marker_pub.publish(self.markerarray)
 
     def spawn_ball(self):
         # Respawn the ball at a random position and reset velocity
-        self.p = np.array([0.5, 0.5, 0.5]) #self.generate_random_position()
+        self.p = np.array([0.5, 0.5, 0.5])
         self.v = np.array([0.0, 0.0, 0.0])
         self.a = np.zeros(3)
         self.hit_timeout = 0
@@ -180,13 +192,10 @@ class DemoNode(Node):
     def generate_random_position(self):
         x = random.uniform(-1, 1)
         y = random.uniform(-1, 1)
-        # limit height to 1.2 meters
-        z = 1 #random.uniform(2, 4)
+        z = 1  # Fixed height
         return np.array([x, y, z])
 
-#
-#  Main Code
-#
+# Main Code
 def main(args=None):
     # Initialize ROS and the demo node
     rclpy.init(args=args)

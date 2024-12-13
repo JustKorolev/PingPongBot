@@ -1,0 +1,59 @@
+[0.795s] Invoking command in '/home/baaqerfarhat/robotws/src/PingPongBot': PYTHONPATH=/home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/pingpongbot build --build-base /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build install --record /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/install.log --single-version-externally-managed install_data
+[1.134s] running egg_info
+[1.134s] creating build/pingpongbot/pingpongbot.egg-info
+[1.135s] writing build/pingpongbot/pingpongbot.egg-info/PKG-INFO
+[1.135s] writing dependency_links to build/pingpongbot/pingpongbot.egg-info/dependency_links.txt
+[1.135s] writing entry points to build/pingpongbot/pingpongbot.egg-info/entry_points.txt
+[1.135s] writing requirements to build/pingpongbot/pingpongbot.egg-info/requires.txt
+[1.135s] writing top-level names to build/pingpongbot/pingpongbot.egg-info/top_level.txt
+[1.136s] writing manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
+[1.138s] reading manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
+[1.140s] writing manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
+[1.140s] running build
+[1.140s] running build_py
+[1.140s] creating /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build
+[1.141s] creating /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib
+[1.141s] creating /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
+[1.141s] copying pingpongbot/ball.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
+[1.142s] copying pingpongbot/__init__.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
+[1.142s] copying pingpongbot/test.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
+[1.142s] copying pingpongbot/robot.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
+[1.142s] creating /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
+[1.143s] copying pingpongbot/utils/__init__.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
+[1.143s] copying pingpongbot/utils/GeneratorNode.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
+[1.143s] copying pingpongbot/utils/TransformHelpers.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
+[1.143s] copying pingpongbot/utils/TrajectoryUtils.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
+[1.143s] copying pingpongbot/utils/KinematicChain.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
+[1.144s] running install
+[1.144s] running install_lib
+[1.145s] creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
+[1.146s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/ball.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
+[1.146s] creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
+[1.146s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/__init__.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
+[1.146s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/GeneratorNode.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
+[1.147s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/TransformHelpers.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
+[1.147s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/TrajectoryUtils.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
+[1.147s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/KinematicChain.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
+[1.147s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/__init__.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
+[1.147s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/test.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
+[1.147s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/robot.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
+[1.148s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/ball.py to ball.cpython-310.pyc
+[1.150s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/__init__.py to __init__.cpython-310.pyc
+[1.150s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/GeneratorNode.py to GeneratorNode.cpython-310.pyc
+[1.151s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/TransformHelpers.py to TransformHelpers.cpython-310.pyc
+[1.152s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/TrajectoryUtils.py to TrajectoryUtils.cpython-310.pyc
+[1.153s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/KinematicChain.py to KinematicChain.cpython-310.pyc
+[1.154s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/__init__.py to __init__.cpython-310.pyc
+[1.155s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/test.py to test.cpython-310.pyc
+[1.155s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/robot.py to robot.cpython-310.pyc
+[1.157s] running install_data
+[1.157s] creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/ament_index
+[1.157s] creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/ament_index/resource_index
+[1.157s] creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/ament_index/resource_index/packages
+[1.158s] copying resource/pingpongbot -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/ament_index/resource_index/packages
+[1.158s] copying package.xml -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot
+[1.158s] creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/launch
+[1.158s] copying launch/hitball.launch.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/launch
+[1.158s] creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/rviz
+[1.159s] error: can't copy 'rviz/log': doesn't exist or not a regular file
+[1.181s] Invoked command in '/home/baaqerfarhat/robotws/src/PingPongBot' returned '1': PYTHONPATH=/home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/pingpongbot build --build-base /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build install --record /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/install.log --single-version-externally-managed install_data
