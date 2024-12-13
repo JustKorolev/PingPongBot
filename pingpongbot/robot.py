@@ -61,6 +61,7 @@ class Trajectory():
 
         # Swing variables
         self.hit_time = float("inf")
+        self.return_time = float("inf")
         self.hit_pos = np.zeros(3)
         self.hit_q = np.zeros(6)
         self.hit_qdot = np.zeros(6)
@@ -104,10 +105,9 @@ class Trajectory():
     def evaluate(self, t, dt):
 
         # TODO: TESTING
-        self.hit_pos = np.array([0.8, 0.8, -0.7]) # Robot reach radius is 1.3m
-        self.hit_pos = np.array([0.5, 0.5, 0.5]) # Robot reach radius is 1.3m
+        self.hit_pos = np.array([0.2, 0.2, 0.2]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
-        ball_target_pos = np.array([10, -20, 0])
+        ball_target_pos = np.array([2, -3, 0])
         g = np.array([0.0, 0.0, -1.0])  # Adjust magnitude as needed, e.g., -9.81 for real gravity
 
         # Hit sequence
@@ -117,7 +117,7 @@ class Trajectory():
                 if self.hit_pos[2] < 0:
                     self.repulsion_const = 1000
                 else:
-                    self.repulsion_const = 20
+                    self.repulsion_const = 10
 
                 if np.linalg.norm(self.hit_pos) > self.max_reach_rad:
                     print("WARNING: OBJECT OUTSIDE OF WORKSPACE. ROBOT WILL NOT REACH.")
@@ -137,6 +137,7 @@ class Trajectory():
 
                 # Calculate the trajectory time
                 self.hit_time = self.calculate_sequence_time(self.q0, self.hit_q)
+                self.return_time = self.hit_time / 2
 
             if t - self.time_offset > self.hit_time - dt:
                 # Publishing at moment before impact
@@ -167,8 +168,8 @@ class Trajectory():
 
         # Return home sequence
         # TODO: CHECK WHY ROBOT SOMETIMES DOESNT RETURN TO CORRECT HOME ANGLES
-        elif t - self.time_offset < 2*self.hit_time:
-            qd_return, qddot_return = spline(t - self.time_offset - self.hit_time, self.hit_time, self.hit_q, self.home_q, self.hit_qdot, np.zeros(6))
+        elif t - self.time_offset < self.hit_time + self.return_time:
+            qd_return, qddot_return = spline(t - self.time_offset - self.hit_time, self.return_time, self.hit_q, self.home_q, self.hit_qdot, np.zeros(6))
             pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_return)
             vd = Jv @ qddot_return
             wd = Jw @ qddot_return
@@ -312,35 +313,24 @@ class Trajectory():
         pose.orientation = Quaternion_from_R(orientation)
         return pose
 
+
     def create_vel_vec(self, velocity):
         vx, vy, vz = velocity
         vec3 = Vector3(x=vx, y=vy, z=vz)
         return vec3
 
+
     def ball_pos_callback(self, pos):
         pos_array = np.array([pos.x, pos.y, pos.z])
         self.ball_pos = pos_array
 
-    def calculate_min_paddle_vel(self, p0, pfinal, g, weights=None):
-        """
-        Calculate the minimum paddle velocity needed to hit the ball to the target position.
-        Args:
-        - p0 (array): Initial position of the ball [x, y, z].
-        - pfinal (array): Target final position [x, y, z].
-        - g (array): Gravity vector [gx, gy, gz].
-        - weights (array, optional): Weights for [x, y, z] components. Defaults to equal weights.
 
-        Returns:
-        - min_paddle_vel (array): Minimum initial velocity vector for the paddle [vx, vy, vz].
-        """
+    def calculate_min_paddle_vel(self, p0, pfinal, g, weights=None):
         if weights is None:
             weights = np.array([1.0, 1.0, 1.0])  # Default to equal weights
 
+
         def v0_norm_debug(T):
-            """
-            Objective function to minimize weighted ||v0||.
-            Logs intermediate results for debugging.
-            """
             if T <= 0:
                 return np.inf  # Avoid division by zero
             # Compute v0 for given T
@@ -355,8 +345,6 @@ class Trajectory():
         # Minimize ||v0|| with respect to T
         res = minimize(v0_norm_debug, x0=[T_guess], bounds=[(1e-3, None)])
 
-        if not res.success:
-            raise RuntimeError(f"Optimization failed: {res.message}")
 
         # Optimal time and velocity
         T_opt = res.x[0]
