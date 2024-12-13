@@ -40,6 +40,8 @@ class Trajectory():
 
         # Forward kinematics chain
         self.tip_chain = KinematicChain(node, 'world', 'tip', self.jointnames())
+        self.elbow_chain = KinematicChain(node, 'world', 'forearm_link', self.jointnames()[:-3])
+        self.shoulder_lift_chain = KinematicChain(node, 'world', 'upper_arm_link', self.jointnames()[:-4])
 
         #BALL AND BOWL
         self.bowl_pos = np.array([1.5, 0.0, 0.0])
@@ -75,7 +77,8 @@ class Trajectory():
         # Tuning constants
         self.lam = 10
         self.lam_second = 15
-        self.gamma = 0.25
+        self.gamma = 0.2
+        self.repulsion_const = 1
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
         self.max_joint_vels = np.array([2, 2, 2, 2, 2, 2])
         self.joint_weights = np.ones(6) / self.max_joint_vels**2
@@ -101,7 +104,7 @@ class Trajectory():
     def evaluate(self, t, dt):
 
         # TODO: TESTING
-        self.hit_pos = np.array([0.95, 0.95, 0.95]) # Robot reach radius is 1.3m
+        self.hit_pos = np.array([-0.7, -0.2, 0.5]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
         ball_target_pos = np.array([2, -2, 0])
 
@@ -178,28 +181,29 @@ class Trajectory():
         # Adjusted velocities
         adjusted_vd = vd + ((4*self.lam * error_p) - (0.0 * error_n/dt))
         adjusted_nd = nd - ((2*self.lam * error_n) - (0.0 * error_n/dt))
-        combined_vwd = np.concatenate([adjusted_vd, adjusted_nd])
+        combined_vnd = np.concatenate([adjusted_vd, adjusted_nd])
 
         # Jacobian adjustments
-        J_adjusted = self.adjusted_jacobian(Jv, Jw, nd)
-        # J_p = J_adjusted[:3, :]
-        # J_s = J_adjusted[3:, :]
-        # J_pinv_p = np.linalg.pinv(J_p)
-        # J_pinv_s = np.linalg.pinv(J_s)
-        J_pinv = np.linalg.pinv(J_adjusted)
+        Jp = self.adjusted_jacobian(Jv, Jw, nd)
+        Jp_pinv = np.linalg.pinv(Jp)
 
         # Primary task
         # qddot_main = J_pinv_p @ adjusted_vd
 
         # Secondary task
-        # qddot_secondary = J_pinv_s @ adjusted_wd
-        N = J_adjusted.shape[1]
+        qsdot = self.repulsion_const * self.repulsion(qdlast)
+        N = Jp.shape[0]
 
-        # BASIC QDDOT CALCULATION
-        # TODO: CONSIDER USING TARGETED-REMOVAL/BLENDING
-        jac_winv = np.linalg.pinv(J_adjusted.T @ J_adjusted +\
-                                np.diag(self.gamma_array)) @ J_adjusted.T
-        qddot = jac_winv @ combined_vwd
+        # PRIMARY TASK: VELOCITY AND PADDLE ORIENTATION
+        jac_winv = np.linalg.pinv(Jp.T @ Jp +\
+                                np.diag(self.gamma_array)) @ Jp.T
+        # qddot = jac_winv @ combined_vnd
+
+
+        # PRIMARY TASK: VELOCITY AND PADDLE ORIENTATION
+        # SECONDARY TASK: REPULSION FROM FLOOR
+        qddot = jac_winv @ combined_vnd +\
+                    (np.eye(N) - jac_winv @ Jp) @ qsdot
 
         # QDDOT WITH JOINT WEIGHTING MATRIX
         # jac_weighted = self.weight_matrix @ jac_winv.T @\
@@ -227,6 +231,29 @@ class Trajectory():
         # print(f"DESIRED PADDLE NORMAL: {self.paddle_hit_vel/np.linalg.norm(self.paddle_hit_vel)}")
 
         return (qd, qddot, pd, vd, Rd, wd)
+
+
+    def repulsion(self, q):
+        # Compute the wrist and elbow points.
+        (p_elbow, _, _, _) = self.elbow_chain.fkin(q[:3])  # 3 joints
+        (p_shoulder, _, Jv, Jw) = self.shoulder_lift_chain.fkin(q[:2])  # 2 joints
+
+        # Calculate "distance" between elbow and ground
+        distance_to_ground = p_elbow[2]
+
+        F = np.array([0, 0, np.e**(-distance_to_ground + 1)])
+
+        # Map the repulsion force acting at parm to the equivalent force
+        # and torque actiing at the wrist point.
+        Fwrist = F
+        print(Fwrist.round(2))
+        Twrist = np.cross(p_shoulder-p_elbow, F)
+
+        # Convert the force/torque to joint torques (J^T).
+        tau = np.vstack((Jv, Jw)).T @ np.concatenate((Fwrist, Twrist))
+
+        # Return the 2 joint torques as part of the 6 full joints.
+        return np.concatenate((tau, np.zeros(4)))
 
 
     def calculate_shortest_angle(self, q0, qf):
