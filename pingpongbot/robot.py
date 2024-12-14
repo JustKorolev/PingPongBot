@@ -44,14 +44,12 @@ class Trajectory():
         self.shoulder_lift_chain = KinematicChain(node, 'world', 'upper_arm_link', self.jointnames()[:-4])
 
         #BALL AND BOWL
-        self.home_q = np.array([0, -pi/2, pi/2, pi/2, 0, 0])
-        # self.home_q = np.array([0, 0, -5*pi/6, -pi, 0, 0])
-        # self.home_q = np.array([-0.1, -2.2, 2.4, -1.0, 1.6, 1.6])
-        self.q_centers = np.array([-pi/2, -pi/2, 0, -pi/2, 0, 0])
+        self.home_q_left = np.array([0, -pi/2, pi/2, pi/2, 0, 0])
+        self.home_q_right = np.array([pi, -pi/2, pi/2, pi/2, 0, 0])
 
         # Initial position
-        self.q0 = self.home_q
-        self.home_p, self.home_R, _, _  = self.tip_chain.fkin(self.home_q)
+        self.q0 = self.home_q_left
+        self.home_p, self.home_R, _, _  = self.tip_chain.fkin(self.home_q_left)
         self.p0 = self.home_p
         self.R0 = self.home_R
         self.qdot0 = np.zeros(6)
@@ -59,6 +57,7 @@ class Trajectory():
         self.paddle_hit_normal = np.zeros(3)
 
         # Swing variables
+        self.setup_time = 0
         self.hit_time = float("inf")
         self.return_time = float("inf")
         self.hit_pos = np.zeros(3)
@@ -74,15 +73,12 @@ class Trajectory():
         self.nd = self.get_paddle_normal(self.R0)
         self.qddot = np.zeros(3)
 
-        # Actual kinematics variable
-        self.actual_q_hit = np.zeros(6)
-
         # Tuning constants
-        self.lam = 20
-        self.gamma = 0.25
+        self.lam = 15
+        self.gamma = 0.3
         self.repulsion_const = 0
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
-        self.max_joint_vels = np.array([1] * 6)
+        self.max_joint_vels = np.array([2.5] * 6)
         self.max_vel_matrix = np.diag(self.max_joint_vels ** 2)
 
         # Robot parameters
@@ -106,16 +102,30 @@ class Trajectory():
         ball_target_pos = np.array([3, -2, 0])
         g = np.array([0.0, 0.0, -1.0])  # Adjust magnitude as needed, e.g., -9.81 for real gravity
 
+        # Set up sequence:
+        # If ball is on right side, change starting position
+        if self.hit_pos[1] < 0:
+            self.setup_time = 2
+        if t - self.time_offset < self.setup_time:
+            # qd calculation using trajectory in joint space
+            qd_hit, qddot_hit = spline(t - self.time_offset, self.setup_time, self.home_q_left,
+                                       self.home_q_right, np.zeros(6), np.zeros(6))
+
+            # Calculating robot values using forward kinematics
+            pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_hit)
+            vd = Jv @ qddot_hit
+            wd = Jw @ qddot_hit
+            nd = self.get_paddle_normal(Rd)
+
+
+
+
         # Hit sequence
-        if t - self.time_offset < self.hit_time:
+        elif t - self.time_offset - self.setup_time < self.hit_time:
+
 
             # PRE CALCULATIONS FOR TRAJECTORY
-            if t - self.time_offset < dt:
-
-                if self.hit_pos[2] < 0:
-                    self.repulsion_const = 15 # TODO: FIX
-                else:
-                    self.repulsion_const = 1 # TODO: FIX
+            if t - self.time_offset - self.setup_time < dt:
 
                 if np.linalg.norm(self.hit_pos) > self.max_reach_rad:
                     print("WARNING: OBJECT OUTSIDE OF WORKSPACE. ROBOT WILL NOT REACH.")
@@ -128,7 +138,8 @@ class Trajectory():
                 print(f"Computed Paddle Hit Velocity: {self.paddle_hit_vel}")
 
                 # Use newton raphson to converge to the final joint angles under task constraints
-                self.q_hit = self.newton_raphson(self.hit_pos, self.paddle_hit_normal, self.home_q)
+                self.q0 = self.qd
+                self.q_hit = self.newton_raphson(self.hit_pos, self.paddle_hit_normal, self.qd)
                 _, _, Jvf, _ = self.tip_chain.fkin(self.q_hit)
                 self.qdot_hit = np.linalg.pinv(Jvf) @ self.paddle_hit_vel
 
@@ -136,7 +147,7 @@ class Trajectory():
                 self.hit_time = self.calculate_sequence_time(self.q0, self.q_hit)
                 self.return_time = self.hit_time
 
-            if t - self.time_offset > self.hit_time - dt:
+            if t - self.time_offset - self.setup_time > self.hit_time - dt:
                 # Publishing at moment before impact
                 p_actual, R_actual, Jv, _ = self.tip_chain.fkin(self.qd)
                 v_actual = Jv @ self.qddot
@@ -145,7 +156,6 @@ class Trajectory():
                 self.tip_vel_msg = self.create_vel_vec(v_actual)
                 self.tip_pose_pub.publish(self.tip_pose_msg)
                 self.tip_vel_pub.publish(self.tip_vel_msg)
-                self.actual_q_hit = self.qd
 
                 # TODO: TROUBLESHOOTING VALUES AT IMPACT
                 print(f"ACTUAL FINAL PADDLE VEL: {v_actual}")
@@ -158,7 +168,8 @@ class Trajectory():
                 print(f"DESIRED JOINT POSITION: {self.q_hit}")
 
             # qd calculation using trajectory in joint space
-            qd_hit, qddot_hit = spline(t - self.time_offset, self.hit_time, self.q0, self.q_hit, self.qdot0, self.qdot_hit)
+            qd_hit, qddot_hit = spline(t - self.time_offset - self.setup_time, self.hit_time,
+                                       self.q0, self.q_hit, self.qdot0, self.qdot_hit)
 
             # Calculating robot values using forward kinematics
             pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_hit)
@@ -167,9 +178,9 @@ class Trajectory():
             nd = self.get_paddle_normal(Rd)
 
         # Return home sequence
-        # TODO: CHECK WHY ROBOT SOMETIMES DOESNT RETURN TO CORRECT HOME ANGLES
-        elif t - self.time_offset - self.hit_time < self.return_time:
-            qd_return, qddot_return = spline(t - self.time_offset - self.hit_time, self.return_time, self.q_hit, self.home_q, self.qdot_hit, np.zeros(6))
+        elif t - self.time_offset - self.setup_time - self.hit_time < self.return_time:
+            qd_return, qddot_return = spline(t - self.time_offset - self.setup_time - self.hit_time,
+                                             self.return_time, self.q_hit, self.home_q_left, self.qdot_hit, np.zeros(6))
             pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_return)
             vd = Jv @ qddot_return
             wd = Jw @ qddot_return
@@ -177,11 +188,6 @@ class Trajectory():
 
         else:
             return
-            # qd_settle = self.home_q
-            # pd, Rd, Jv, Jw = self.tip_chain.fkin(qd_settle)
-            # vd = Jv @ qd_settle
-            # wd = Jw @ qd_settle
-            # nd = self.get_paddle_normal(Rd)
 
 
         # Kinematics
@@ -281,9 +287,9 @@ class Trajectory():
         c = self.repulsion_const
         F_elbow = np.array([0, 0, 2*np.e**((-elbow_distance_to_ground / 0.02))])
         F_tip_ground = np.array([0, 0, 2*np.e**(-tip_distance_to_ground / 0.02)])
-        F_tip_base = np.array([10*np.e**(-tip_distance_to_base / 0.1),
-                               10*np.e**(-tip_distance_to_base / 0.1),
-                               0]) * -tip_base_diff_directions
+        F_tip_base = np.array([0.3 * tip_distance_to_base / tip_distance_to_base**2,
+                               0.3 * tip_distance_to_base / tip_distance_to_base**2,
+                               0.3 * tip_distance_to_base / tip_distance_to_base**2]) * -tip_base_diff_directions
         F_total = F_elbow + F_tip_ground + F_tip_base
 
         # Map the repulsion force acting at parm to the equivalent force
