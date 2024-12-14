@@ -68,6 +68,7 @@ class Trajectory():
         # Kinematics variables
         self.qd = self.q0
         self.vd = np.zeros(3)
+        self.wd = np.zeros(3)
         self.pd = self.p0
         self.Rd = self.R0
         self.nd = self.get_paddle_normal(self.R0)
@@ -97,7 +98,7 @@ class Trajectory():
     def evaluate(self, t, dt):
 
         # TODO: TESTING
-        self.hit_pos = np.array([-0.5, -0.5, 0.6]) # Robot reach radius is 1.3m
+        self.hit_pos = np.array([-0.5, -0.5, 0.5]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
         ball_target_pos = np.array([3, -2, 0])
         g = np.array([0.0, 0.0, -1.0])  # Adjust magnitude as needed, e.g., -9.81 for real gravity
@@ -194,56 +195,56 @@ class Trajectory():
         qdlast = self.qd
         pdlast = self.pd
         Rdlast = self.Rd
+        wdlast = self.wd
         ndlast = self.get_paddle_normal(Rdlast)
         pr, Rr, Jv, Jw = self.tip_chain.fkin(qdlast)
         nr = self.get_paddle_normal(Rr)
+        wr = Jw @ qdlast
 
-        # Position and normal errors
-        error_p = ep(pdlast, pr)
-        error_wd = np.cross(nr, ndlast)
 
-        # Adjusted velocities
-        adjusted_vd = vd + (self.lam * error_p)
-        adjusted_wd_xz = self.adjusted_w(wd + (self.lam * error_wd), Rd) # should be angular velocity
-        combined_vnd = np.concatenate([adjusted_vd, adjusted_wd_xz])
+        # HIT SEQUENCE JACOBIAN CALCULATIONS
+        if 0 < t - self.time_offset - self.setup_time < self.hit_time:
 
-        # Jacobian adjustments
-        Jp = self.adjusted_jacobian(Jv, Jw, Rd)
+            # Position and normal errors
+            error_p = ep(pdlast, pr)
+            error_wd = np.cross(nr, ndlast)
 
-        # Primary task
-        # qddot_main = J_pinv_p @ adjusted_vd
+            # Adjusted velocities
+            adjusted_vd = vd + (self.lam * error_p)
+            adjusted_wd_xz = self.adjusted_w(wd + (self.lam * error_wd), Rd) # should be angular velocity
+            combined_vwd = np.concatenate([adjusted_vd, adjusted_wd_xz])
 
-        # Secondary task
-        qsdot = self.repulsion(qdlast)
+            # Jacobian adjustments
+            Jp = self.adjusted_jacobian(Jv, Jw, Rd)
+
+        # SETUP / RETURN SEQUENCES
+        else:
+            print("HERE")
+            # Position and normal errors
+            error_p = ep(pdlast, pr)
+            error_wd = eR(Rdlast, Rr)
+
+            # Adjusted velocities
+            adjusted_vd = vd + (self.lam * error_p)
+            adjusted_wd = wd + (self.lam * error_wd) # should be angular velocity
+            combined_vwd = np.concatenate([adjusted_vd, adjusted_wd])
+
+            # Jacobian adjustments
+            Jp = np.vstack([Jv, Jw])
+
 
         # PRIMARY TASK: VELOCITY AND PADDLE ORIENTATION
-        # Additionally, regularization and max joint elocity constraints.
-        # TODO: NOT SURE EXACTLY HOW THE WEIGHTING WORKS
-        Jp_pinv = np.linalg.pinv(Jp.T @ Jp +\
-                                np.diag(self.gamma_array)) @ Jp.T
-
-        # Jp_pinv = self.max_vel_matrix @ Jp.T @ np.linalg.pinv(Jp @ self.max_vel_matrix @ Jp.T)
-
-        # Jp_pinv = np.linalg.pinv(Jp.T @ self.weight_matrix @ Jp +\
-        #                         np.diag(self.gamma_array)) @ Jp.T @ self.weight_matrix
-
+        # Using targeted-removal / blending
+        u, s, vT = np.linalg.svd(Jp, full_matrices=False)
+        s_modified = np.diag([(1/s_i if s_i >= self.gamma else s_i/self.gamma**2) for s_i in s])
+        Jp_pinv = vT.T @ s_modified @ u.T
 
         # PRIMARY TASK: VELOCITY AND PADDLE ORIENTATION
         # SECONDARY TASK: REPULSION FROM FLOOR
+        qsdot = self.repulsion(qdlast)
         N = (Jp_pinv @ Jp).shape[0]
-        qddot = Jp_pinv @ combined_vnd +\
-                    (np.eye(N) - Jp_pinv @ Jp) @ qsdot
+        qddot = Jp_pinv @ combined_vwd + (np.eye(N) - Jp_pinv @ Jp) @ qsdot
         print((np.eye(N) - Jp_pinv @ Jp) @ qsdot)
-
-        # print((np.eye(N) - jac_winv @ Jp) @ qsdot)
-
-        # QDDOT WITH JOINT WEIGHTING MATRIX
-        # jac_weighted = self.weight_matrix @ jac_winv.T @\
-        #     np.linalg.pinv(jac_winv @ self.weight_matrix @ jac_winv.T)
-        # qddot = np.linalg.pinv(self.weight_matrix) @ jac_winv.T @ \
-        #        np.linalg.pinv(jac_winv @ np.linalg.pinv(self.weight_matrix) @ jac_winv.T) @ combined_vwd
-
-
 
 
         qd = qdlast + dt * qddot
@@ -254,6 +255,7 @@ class Trajectory():
         self.Rd = Rd
         self.vd = vd
         self.nd = nd
+        self.wd = wd
         self.qddot = qddot
 
         return (qd, qddot, pd, vd, Rd, wd)
@@ -347,8 +349,6 @@ class Trajectory():
                 q[i] = self.calculate_shortest_angle(self.q0[i], q[i])
 
         print(f"DESIRED JOINT ANGLES: {q}")
-
-
 
         return q
 

@@ -153,7 +153,7 @@ class DemoNode(Node):
 
     def spawn_ball(self):
         # Respawn the ball at a random position and reset velocity
-        self.p = np.array([-0.5, -0.5, 0.6]) #self.generate_random_position()
+        self.p = np.array([-0.5, -0.5, 0.5]) #self.generate_random_position()
         self.v = np.array([0.0, 0.0, 0.0])
         self.a = np.zeros(3)
         self.hit_timeout = 0
