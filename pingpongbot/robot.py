@@ -75,8 +75,9 @@ class Trajectory():
         self.qddot = np.zeros(3)
 
         # Tuning constants
-        self.lam = 15
-        self.gamma = 0.3
+        self.lam = 20
+        self.gamma = 0.23
+        #self.gamma = 0.2565
         self.repulsion_const = 0
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
         self.max_joint_vels = np.array([2.5] * 6)
@@ -98,9 +99,9 @@ class Trajectory():
     def evaluate(self, t, dt):
 
         # TODO: TESTING
-        self.hit_pos = np.array([-0.5, -0.5, 0.5]) # Robot reach radius is 1.3m
+        self.hit_pos = np.array([0.0, 0.0, 1.3]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
-        ball_target_pos = np.array([3, -2, 0])
+        ball_target_pos = np.array([10, -2, 0])
         g = np.array([0.0, 0.0, -1.0])  # Adjust magnitude as needed, e.g., -9.81 for real gravity
 
         # Set up sequence:
@@ -199,7 +200,6 @@ class Trajectory():
         ndlast = self.get_paddle_normal(Rdlast)
         pr, Rr, Jv, Jw = self.tip_chain.fkin(qdlast)
         nr = self.get_paddle_normal(Rr)
-        wr = Jw @ qdlast
 
 
         # HIT SEQUENCE JACOBIAN CALCULATIONS
@@ -219,7 +219,6 @@ class Trajectory():
 
         # SETUP / RETURN SEQUENCES
         else:
-            print("HERE")
             # Position and normal errors
             error_p = ep(pdlast, pr)
             error_wd = eR(Rdlast, Rr)
@@ -244,7 +243,6 @@ class Trajectory():
         qsdot = self.repulsion(qdlast)
         N = (Jp_pinv @ Jp).shape[0]
         qddot = Jp_pinv @ combined_vwd + (np.eye(N) - Jp_pinv @ Jp) @ qsdot
-        print((np.eye(N) - Jp_pinv @ Jp) @ qsdot)
 
 
         qd = qdlast + dt * qddot
@@ -287,18 +285,18 @@ class Trajectory():
 
         # Repulsion based on exponential curve
         c = self.repulsion_const
-        F_elbow = np.array([0, 0, 2*np.e**((-elbow_distance_to_ground / 0.02))])
-        F_tip_ground = np.array([0, 0, 2*np.e**(-tip_distance_to_ground / 0.02)])
-        F_tip_base = np.array([0.3 * tip_distance_to_base / tip_distance_to_base**2,
-                               0.3 * tip_distance_to_base / tip_distance_to_base**2,
-                               0.3 * tip_distance_to_base / tip_distance_to_base**2]) * -tip_base_diff_directions
+        F_elbow = np.array([0, 0, 0.1*np.e**((-elbow_distance_to_ground / 0.02))])
+        F_tip_ground = np.array([0, 0, 0.1*np.e**(-tip_distance_to_ground / 0.02)])
+        F_tip_base = np.array([0.1 * tip_distance_to_base / tip_distance_to_base**2,
+                               0.1 * tip_distance_to_base / tip_distance_to_base**2,
+                               0.01 * tip_distance_to_base / tip_distance_to_base**2]) * tip_base_diff_directions
         F_total = F_elbow + F_tip_ground + F_tip_base
 
         # Map the repulsion force acting at parm to the equivalent force
         # and torque actiing at the wrist point.
-        T_elbow = np.cross(p_shoulder - p_elbow , F_elbow)
-        T_tip_ground = np.cross(p_tip - p_elbow , F_tip_ground)
-        T_tip_base = np.cross(p_tip - self.robot_base_position, F_tip_base)
+        T_elbow = np.cross(p_shoulder - p_shoulder , F_elbow)
+        T_tip_ground = np.cross(p_tip - p_shoulder , F_tip_ground)
+        T_tip_base = np.cross(p_tip - p_shoulder, F_tip_base)
         T_total = T_elbow + T_tip_ground + T_tip_base
 
         J_stacked = np.vstack((Jv_elbow, Jw_elbow))
@@ -346,7 +344,7 @@ class Trajectory():
             q[i] = fmod(q[i], 2*pi)
 
             if shortest_angles:
-                q[i] = self.calculate_shortest_angle(self.q0[i], q[i])
+                q[i] = self.calculate_shortest_angle(self.qd[i], q[i])
 
         print(f"DESIRED JOINT ANGLES: {q}")
 
@@ -437,7 +435,7 @@ class Trajectory():
         self.ball_vel = p_from_Point(vel)
 
     def get_paddle_normal(self, R):
-        return -R[:, 1] # Negative due to axes being flipped
+        return R[:, 1] 
 
 
 def main(args=None):
