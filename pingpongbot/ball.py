@@ -76,7 +76,7 @@ class DemoNode(Node):
         self.basket_marker.id = 2
         self.basket_marker.type = Marker.CYLINDER
         self.basket_marker.action = Marker.ADD
-        self.basket_marker.pose.position = Point(x=20.0, y=-20.0, z=0.0) # Adjust z to raise cylinder
+        self.basket_marker.pose.position = Point(x=3.0, y=-2.0, z=0.0) # Adjust z to raise cylinder
         self.basket_marker.pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         self.basket_marker.scale = Vector3(x=0.5, y=0.5, z=0.1)
         self.basket_marker.color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=0.8)
@@ -153,7 +153,7 @@ class DemoNode(Node):
 
     def spawn_ball(self):
         # Respawn the ball at a random position and reset velocity
-        self.p = np.array([0.0, 0.0, 0.1]) #self.generate_random_position()
+        self.p = np.array([-0.5, -0.5, 0.6]) #self.generate_random_position()
         self.v = np.array([0.0, 0.0, 0.0])
         self.a = np.zeros(3)
         self.hit_timeout = 0

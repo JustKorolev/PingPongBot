@@ -79,11 +79,11 @@ class Trajectory():
 
         # Tuning constants
         self.lam = 20
-        self.gamma = 0.3
+        self.gamma = 0.25
         self.repulsion_const = 0
         self.gamma_array = [self.gamma ** 2] * len(self.jointnames())
-        self.max_joint_vels = np.array([4, 4, 4, 4, 4, 4])
-        self.weight_matrix = np.diag(self.max_joint_vels ** 2)
+        self.max_joint_vels = np.array([1] * 6)
+        self.max_vel_matrix = np.diag(self.max_joint_vels ** 2)
 
         # Robot parameters
         self.max_reach_rad = 1.3
@@ -96,19 +96,14 @@ class Trajectory():
                 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
 
-    def adjusted_jacobian(self, Jv, Jw, nr):
-        n_cross = crossmat(nr)
-        Jn = n_cross @ Jw
-        J_adjusted = np.vstack([Jv, Jn])
-        return J_adjusted
 
 
     def evaluate(self, t, dt):
 
         # TODO: TESTING
-        self.hit_pos = np.array([0.5, 0, -0.5]) # Robot reach radius is 1.3m
+        self.hit_pos = np.array([-0.5, -0.5, 0.6]) # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
-        ball_target_pos = np.array([20, -20, 0])
+        ball_target_pos = np.array([3, -2, 0])
         g = np.array([0.0, 0.0, -1.0])  # Adjust magnitude as needed, e.g., -9.81 for real gravity
 
         # Hit sequence
@@ -120,7 +115,7 @@ class Trajectory():
                 if self.hit_pos[2] < 0:
                     self.repulsion_const = 15 # TODO: FIX
                 else:
-                    self.repulsion_const = 15
+                    self.repulsion_const = 1 # TODO: FIX
 
                 if np.linalg.norm(self.hit_pos) > self.max_reach_rad:
                     print("WARNING: OBJECT OUTSIDE OF WORKSPACE. ROBOT WILL NOT REACH.")
@@ -143,16 +138,19 @@ class Trajectory():
 
             if t - self.time_offset > self.hit_time - dt:
                 # Publishing at moment before impact
-                self.tip_pose_msg = self.create_pose(self.pd, self.Rd)
-                self.tip_vel_msg = self.create_vel_vec(self.vd)
+                p_actual, R_actual, Jv, _ = self.tip_chain.fkin(self.qd)
+                v_actual = Jv @ self.qddot
+                n_actual = self.get_paddle_normal(R_actual)
+                self.tip_pose_msg = self.create_pose(p_actual, R_actual)
+                self.tip_vel_msg = self.create_vel_vec(v_actual)
                 self.tip_pose_pub.publish(self.tip_pose_msg)
                 self.tip_vel_pub.publish(self.tip_vel_msg)
                 self.actual_q_hit = self.qd
 
                 # TODO: TROUBLESHOOTING VALUES AT IMPACT
-                print(f"ACTUAL FINAL PADDLE VEL: {self.vd}")
-                print(f"ACTUAL PADDLE NORMAL: {self.nd}")
-                print(f"ACTUAL HIT POSITION: {self.pd}")
+                print(f"ACTUAL FINAL PADDLE VEL: {v_actual}")
+                print(f"ACTUAL PADDLE NORMAL: {n_actual}")
+                print(f"ACTUAL HIT POSITION: {p_actual}")
                 print(f"ACTUAL JOINT POSITION: {self.qd}")
                 print(f"DESIRED PADDLE VELOCITY: {self.paddle_hit_vel}")
                 print(f"DESIRED PADDLE NORMAL: {self.paddle_hit_normal}")
@@ -196,22 +194,21 @@ class Trajectory():
 
         # Position and normal errors
         error_p = ep(pdlast, pr)
-        error_n = ep(ndlast, nr)
+        error_wd = np.cross(nr, ndlast)
 
         # Adjusted velocities
-        adjusted_vd = vd + ((self.lam * error_p) - (0.0 * error_n/dt))
-        adjusted_nd = nd - ((self.lam * error_n) - (0.0 * error_n/dt))
-        combined_vnd = np.concatenate([adjusted_vd, adjusted_nd])
+        adjusted_vd = vd + (self.lam * error_p)
+        adjusted_wd_xz = self.adjusted_w(wd + (self.lam * error_wd), Rd) # should be angular velocity
+        combined_vnd = np.concatenate([adjusted_vd, adjusted_wd_xz])
 
         # Jacobian adjustments
-        Jp = self.adjusted_jacobian(Jv, Jw, nd)
+        Jp = self.adjusted_jacobian(Jv, Jw, Rd)
 
         # Primary task
         # qddot_main = J_pinv_p @ adjusted_vd
 
         # Secondary task
         qsdot = self.repulsion(qdlast)
-        N = Jp.shape[0]
 
         # PRIMARY TASK: VELOCITY AND PADDLE ORIENTATION
         # Additionally, regularization and max joint elocity constraints.
@@ -219,15 +216,18 @@ class Trajectory():
         Jp_pinv = np.linalg.pinv(Jp.T @ Jp +\
                                 np.diag(self.gamma_array)) @ Jp.T
 
+        # Jp_pinv = self.max_vel_matrix @ Jp.T @ np.linalg.pinv(Jp @ self.max_vel_matrix @ Jp.T)
+
         # Jp_pinv = np.linalg.pinv(Jp.T @ self.weight_matrix @ Jp +\
         #                         np.diag(self.gamma_array)) @ Jp.T @ self.weight_matrix
 
 
         # PRIMARY TASK: VELOCITY AND PADDLE ORIENTATION
         # SECONDARY TASK: REPULSION FROM FLOOR
-
+        N = (Jp_pinv @ Jp).shape[0]
         qddot = Jp_pinv @ combined_vnd +\
                     (np.eye(N) - Jp_pinv @ Jp) @ qsdot
+        print((np.eye(N) - Jp_pinv @ Jp) @ qsdot)
 
         # print((np.eye(N) - jac_winv @ Jp) @ qsdot)
 
@@ -253,6 +253,17 @@ class Trajectory():
         return (qd, qddot, pd, vd, Rd, wd)
 
 
+    def adjusted_jacobian(self, Jv_world, Jw_world, Rtip):
+        Jw_tip = Rtip.T @ Jw_world
+        Jw_tip_xz = np.vstack([Jw_tip[0,:], Jw_tip[2,:]])
+        Jvw_adjusted = np.vstack([Jv_world, Jw_tip_xz])
+        return Jvw_adjusted
+
+    def adjusted_w(self, w_world, Rtip):
+        w_tip = Rtip.T @ w_world
+        w_tip_xz = np.array([w_tip[0], w_tip[2]])
+        return w_tip_xz
+
     def repulsion(self, q):
         # Compute the wrist and elbow points.
         (p_elbow, _, Jv_elbow, Jw_elbow) = self.elbow_chain.fkin(q[:3])  # 3 joints
@@ -268,10 +279,11 @@ class Trajectory():
 
         # Repulsion based on exponential curve
         c = self.repulsion_const
-        F_elbow = np.array([0, 0, np.e**(c*(-elbow_distance_to_ground + 0.5))])
-        F_tip_ground = np.array([0, 0, np.e**(c*(-tip_distance_to_ground + 0.5))])
-        F_tip_base = np.array([np.e**(0.6*c*(-tip_distance_to_base + 0.6))] * 3) * tip_base_diff_directions
-        print(F_tip_base)
+        F_elbow = np.array([0, 0, 2*np.e**((-elbow_distance_to_ground / 0.02))])
+        F_tip_ground = np.array([0, 0, 2*np.e**(-tip_distance_to_ground / 0.02)])
+        F_tip_base = np.array([10*np.e**(-tip_distance_to_base / 0.1),
+                               10*np.e**(-tip_distance_to_base / 0.1),
+                               0]) * -tip_base_diff_directions
         F_total = F_elbow + F_tip_ground + F_tip_base
 
         # Map the repulsion force acting at parm to the equivalent force
@@ -313,10 +325,11 @@ class Trajectory():
         for _ in range(N):
             (pr, R, Jv, Jw) = self.tip_chain.fkin(q)
             nr = self.get_paddle_normal(R)
-            jac = self.adjusted_jacobian(Jv, Jw, nr)
+            jac = self.adjusted_jacobian(Jv, Jw, R)
             p_error = pgoal - pr
-            n_error = ngoal - nr
-            combined_error = np.concatenate([p_error, n_error])
+            n_error = np.cross(nr, ngoal)
+            n_error_xz = np.array([n_error[0], n_error[2]])
+            combined_error = np.concatenate([p_error, n_error_xz])
 
             q = q + np.linalg.pinv(jac) @ (combined_error)
 
@@ -327,6 +340,8 @@ class Trajectory():
             if shortest_angles:
                 q[i] = self.calculate_shortest_angle(self.q0[i], q[i])
 
+        print(f"DESIRED JOINT ANGLES: {q}")
+
 
 
         return q
@@ -336,7 +351,7 @@ class Trajectory():
         max_sequence_time = 5
         q_diff_list = list(abs(qf - q0))
         max_q_diff = max(q_diff_list)
-        sequence_time = 3*(max_q_diff) / self.max_joint_vels[q_diff_list.index(max_q_diff)]
+        sequence_time = 3*(max_q_diff)**0.5 / self.max_joint_vels[q_diff_list.index(max_q_diff)]
         capped_sequence_time = min(max_sequence_time, sequence_time)
         return capped_sequence_time
 
@@ -416,7 +431,7 @@ class Trajectory():
         self.ball_vel = p_from_Point(vel)
 
     def get_paddle_normal(self, R):
-        return R[:, 1]
+        return -R[:, 1] # Negative due to axes being flipped
 
 
 def main(args=None):
