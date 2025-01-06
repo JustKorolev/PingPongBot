@@ -101,7 +101,7 @@ class Controller:
     def evaluate(self, t, dt):
 
         # TODO: TESTING
-        self.hit_pos = np.array([0.5, 0.5, 0.5])  # Robot reach radius is 1.3m
+        self.hit_pos = np.array([0.8, 0.8, 0.8])  # Robot reach radius is 1.3m
         self.ball_hit_velocity = np.zeros(3)
         ball_target_pos = np.array([2.0, -3.0, 0])
         g = np.array(
