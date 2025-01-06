@@ -6,7 +6,7 @@
 [0.437s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
 [0.437s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
 [0.437s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
-[0.437s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/baaqerfarhat/robotws/src/PingPongBot'
+[0.437s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/baaqerfarhat/robotws/src/flyswatter'
 [0.437s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
 [0.437s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
 [0.437s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
@@ -16,7 +16,7 @@
 [0.438s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
 [0.438s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
 [0.438s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
-[0.457s] DEBUG:colcon.colcon_core.package_identification:Package '.' with type 'ros.ament_python' and name 'pingpongbot'
+[0.457s] DEBUG:colcon.colcon_core.package_identification:Package '.' with type 'ros.ament_python' and name 'flyswatter'
 [0.457s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
 [0.458s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
 [0.458s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
@@ -27,31 +27,31 @@
 [0.479s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 34 installed packages in /home/baaqerfarhat/robotws/install
 [0.481s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 407 installed packages in /opt/ros/humble
 [0.484s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'cmake_args' from command line to 'None'
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'cmake_target' from command line to 'None'
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'cmake_target_skip_unavailable' from command line to 'False'
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'cmake_clean_cache' from command line to 'False'
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'cmake_clean_first' from command line to 'False'
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'cmake_force_configure' from command line to 'False'
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'ament_cmake_args' from command line to 'None'
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'catkin_cmake_args' from command line to 'None'
-[0.537s] Level 5:colcon.colcon_core.verb:set package 'pingpongbot' build argument 'catkin_skip_building_tests' from command line to 'False'
-[0.537s] DEBUG:colcon.colcon_core.verb:Building package 'pingpongbot' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot', 'merge_install': False, 'path': '/home/baaqerfarhat/robotws/src/PingPongBot', 'symlink_install': False, 'test_result_base': None}
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'cmake_args' from command line to 'None'
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'cmake_target' from command line to 'None'
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'cmake_clean_cache' from command line to 'False'
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'cmake_clean_first' from command line to 'False'
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'cmake_force_configure' from command line to 'False'
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'ament_cmake_args' from command line to 'None'
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'catkin_cmake_args' from command line to 'None'
+[0.537s] Level 5:colcon.colcon_core.verb:set package 'flyswatter' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.537s] DEBUG:colcon.colcon_core.verb:Building package 'flyswatter' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter', 'merge_install': False, 'path': '/home/baaqerfarhat/robotws/src/flyswatter', 'symlink_install': False, 'test_result_base': None}
 [0.537s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
 [0.538s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
-[0.538s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/baaqerfarhat/robotws/src/PingPongBot' with build type 'ament_python'
-[0.539s] Level 1:colcon.colcon_core.shell:create_environment_hook('pingpongbot', 'ament_prefix_path')
+[0.538s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/baaqerfarhat/robotws/src/flyswatter' with build type 'ament_python'
+[0.539s] Level 1:colcon.colcon_core.shell:create_environment_hook('flyswatter', 'ament_prefix_path')
 [0.542s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
-[0.542s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/hook/ament_prefix_path.ps1'
-[0.543s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/hook/ament_prefix_path.dsv'
-[0.543s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/hook/ament_prefix_path.sh'
+[0.542s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/flyswatter/hook/ament_prefix_path.ps1'
+[0.543s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/flyswatter/hook/ament_prefix_path.dsv'
+[0.543s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/flyswatter/hook/ament_prefix_path.sh'
 [0.544s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
 [0.544s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
-[0.855s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/baaqerfarhat/robotws/src/PingPongBot'
+[0.855s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/baaqerfarhat/robotws/src/flyswatter'
 [0.855s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
 [0.855s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
-[1.309s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/baaqerfarhat/robotws/src/PingPongBot': PYTHONPATH=/home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/pingpongbot build --build-base /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build install --record /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/install.log --single-version-externally-managed install_data
-[1.641s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/baaqerfarhat/robotws/src/PingPongBot' returned '1': PYTHONPATH=/home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/pingpongbot build --build-base /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build install --record /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/install.log --single-version-externally-managed install_data
+[1.309s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/baaqerfarhat/robotws/src/flyswatter': PYTHONPATH=/home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/flyswatter build --build-base /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build install --record /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/install.log --single-version-externally-managed install_data
+[1.641s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/baaqerfarhat/robotws/src/flyswatter' returned '1': PYTHONPATH=/home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/flyswatter build --build-base /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build install --record /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/install.log --single-version-externally-managed install_data
 [1.650s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
 [1.651s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
 [1.651s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '1'
@@ -62,13 +62,13 @@
 [1.736s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
 [1.737s] DEBUG:colcon.colcon_notification.desktop_notification.notify2:Failed to initialize notify2: org.freedesktop.DBus.Error.ServiceUnknown: The name org.freedesktop.Notifications was not provided by any .service files
 [1.737s] DEBUG:colcon.colcon_core.event_reactor:joined thread
-[1.738s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/baaqerfarhat/robotws/src/PingPongBot/install/local_setup.ps1'
-[1.738s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/baaqerfarhat/robotws/src/PingPongBot/install/_local_setup_util_ps1.py'
-[1.740s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/baaqerfarhat/robotws/src/PingPongBot/install/setup.ps1'
-[1.743s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/baaqerfarhat/robotws/src/PingPongBot/install/local_setup.sh'
-[1.744s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/baaqerfarhat/robotws/src/PingPongBot/install/_local_setup_util_sh.py'
-[1.745s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/baaqerfarhat/robotws/src/PingPongBot/install/setup.sh'
-[1.749s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/baaqerfarhat/robotws/src/PingPongBot/install/local_setup.bash'
-[1.750s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/baaqerfarhat/robotws/src/PingPongBot/install/setup.bash'
-[1.754s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/baaqerfarhat/robotws/src/PingPongBot/install/local_setup.zsh'
-[1.755s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/baaqerfarhat/robotws/src/PingPongBot/install/setup.zsh'
+[1.738s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/baaqerfarhat/robotws/src/flyswatter/install/local_setup.ps1'
+[1.738s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/baaqerfarhat/robotws/src/flyswatter/install/_local_setup_util_ps1.py'
+[1.740s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/baaqerfarhat/robotws/src/flyswatter/install/setup.ps1'
+[1.743s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/baaqerfarhat/robotws/src/flyswatter/install/local_setup.sh'
+[1.744s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/baaqerfarhat/robotws/src/flyswatter/install/_local_setup_util_sh.py'
+[1.745s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/baaqerfarhat/robotws/src/flyswatter/install/setup.sh'
+[1.749s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/baaqerfarhat/robotws/src/flyswatter/install/local_setup.bash'
+[1.750s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/baaqerfarhat/robotws/src/flyswatter/install/setup.bash'
+[1.754s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/baaqerfarhat/robotws/src/flyswatter/install/local_setup.zsh'
+[1.755s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/baaqerfarhat/robotws/src/flyswatter/install/setup.zsh'

@@ -1,16 +1,16 @@
 running egg_info
-writing build/pingpongbot/pingpongbot.egg-info/PKG-INFO
-writing dependency_links to build/pingpongbot/pingpongbot.egg-info/dependency_links.txt
-writing entry points to build/pingpongbot/pingpongbot.egg-info/entry_points.txt
-writing requirements to build/pingpongbot/pingpongbot.egg-info/requires.txt
-writing top-level names to build/pingpongbot/pingpongbot.egg-info/top_level.txt
-reading manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
-writing manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
+writing build/flyswatter/flyswatter.egg-info/PKG-INFO
+writing dependency_links to build/flyswatter/flyswatter.egg-info/dependency_links.txt
+writing entry points to build/flyswatter/flyswatter.egg-info/entry_points.txt
+writing requirements to build/flyswatter/flyswatter.egg-info/requires.txt
+writing top-level names to build/flyswatter/flyswatter.egg-info/top_level.txt
+reading manifest file 'build/flyswatter/flyswatter.egg-info/SOURCES.txt'
+writing manifest file 'build/flyswatter/flyswatter.egg-info/SOURCES.txt'
 running build
 running build_py
-copying pingpongbot/ball.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
+copying flyswatter/ball.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter
 running install
 running install_lib
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/ball.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/ball.py to ball.cpython-310.pyc
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/ball.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/ball.py to ball.cpython-310.pyc
 running install_data

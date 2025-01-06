@@ -1,22 +1,22 @@
-[0.726s] Invoking command in '/home/baaqerfarhat/robotws/src/PingPongBot': PYTHONPATH=/home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/pingpongbot build --build-base /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build install --record /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/install.log --single-version-externally-managed install_data
+[0.726s] Invoking command in '/home/baaqerfarhat/robotws/src/flyswatter': PYTHONPATH=/home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/flyswatter build --build-base /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build install --record /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/install.log --single-version-externally-managed install_data
 [1.007s] running egg_info
-[1.008s] writing build/pingpongbot/pingpongbot.egg-info/PKG-INFO
-[1.008s] writing dependency_links to build/pingpongbot/pingpongbot.egg-info/dependency_links.txt
-[1.008s] writing entry points to build/pingpongbot/pingpongbot.egg-info/entry_points.txt
-[1.008s] writing requirements to build/pingpongbot/pingpongbot.egg-info/requires.txt
-[1.009s] writing top-level names to build/pingpongbot/pingpongbot.egg-info/top_level.txt
-[1.010s] reading manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
-[1.011s] writing manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
+[1.008s] writing build/flyswatter/flyswatter.egg-info/PKG-INFO
+[1.008s] writing dependency_links to build/flyswatter/flyswatter.egg-info/dependency_links.txt
+[1.008s] writing entry points to build/flyswatter/flyswatter.egg-info/entry_points.txt
+[1.008s] writing requirements to build/flyswatter/flyswatter.egg-info/requires.txt
+[1.009s] writing top-level names to build/flyswatter/flyswatter.egg-info/top_level.txt
+[1.010s] reading manifest file 'build/flyswatter/flyswatter.egg-info/SOURCES.txt'
+[1.011s] writing manifest file 'build/flyswatter/flyswatter.egg-info/SOURCES.txt'
 [1.012s] running build
 [1.012s] running build_py
-[1.012s] copying pingpongbot/ball.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
-[1.012s] copying pingpongbot/robot.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
+[1.012s] copying flyswatter/ball.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter
+[1.012s] copying flyswatter/robot.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter
 [1.013s] running install
 [1.013s] running install_lib
-[1.013s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/ball.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
-[1.014s] copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/robot.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
-[1.014s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/ball.py to ball.cpython-310.pyc
-[1.017s] byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/robot.py to robot.cpython-310.pyc
+[1.013s] copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/ball.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter
+[1.014s] copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/robot.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter
+[1.014s] byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/ball.py to ball.cpython-310.pyc
+[1.017s] byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/robot.py to robot.cpython-310.pyc
 [1.018s] running install_data
 [1.019s] error: can't copy 'rviz/log': doesn't exist or not a regular file
-[1.041s] Invoked command in '/home/baaqerfarhat/robotws/src/PingPongBot' returned '1': PYTHONPATH=/home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/pingpongbot build --build-base /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build install --record /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/install.log --single-version-externally-managed install_data
+[1.041s] Invoked command in '/home/baaqerfarhat/robotws/src/flyswatter' returned '1': PYTHONPATH=/home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/flyswatter build --build-base /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build install --record /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/install.log --single-version-externally-managed install_data

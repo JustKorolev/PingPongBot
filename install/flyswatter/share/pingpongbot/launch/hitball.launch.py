@@ -22,7 +22,7 @@ def generate_launch_description():
     # LOCATE FILES
 
     # Locate the RVIZ configuration file.
-    rvizcfg = os.path.join(pkgdir('flyswatter'), 'rviz/pingpongbotv1.rviz')
+    rvizcfg = os.path.join(pkgdir('flyswatter'), 'rviz/flyswatter.rviz')
 
     # Locate the URDF file.
     urdf = os.path.join(pkgdir('flyswatter'), 'urdf/ur10_robot.urdf')
@@ -59,8 +59,8 @@ def generate_launch_description():
         output='screen')
 
     # Configure a node for the joint trajectory
-    node_controller = Node(
-        name       = 'controller',
+    node_trajectory = Node(
+        name       = 'trajectory',
         package    = 'flyswatter',
         executable = 'robot',
         output     = 'screen')
@@ -84,6 +84,6 @@ def generate_launch_description():
         node_demo,
         node_rviz,
         node_robot_state_publisher,
-        node_controller,
+        node_trajectory,
         # node_joint_state_publisher_gui
     ])

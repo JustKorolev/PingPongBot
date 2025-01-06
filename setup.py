@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 from glob import glob
 import os
 
-package_name = 'pingpongbot'
+package_name = 'flyswatter'
 
 setup(
     name=package_name,
@@ -20,13 +20,13 @@ setup(
     zip_safe=True,
     maintainer='robot',
     maintainer_email='robot@todo.todo',
-    description='Ping Pong Bot for Final Project',
+    description='Ball-Swatting Bot',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'ball = pingpongbot.ball:main',
-            'robot = pingpongbot.robot:main'
+            'ball = flyswatter.ball:main',
+            'controller = flyswatter.controller:main'
         ],
     },
 )

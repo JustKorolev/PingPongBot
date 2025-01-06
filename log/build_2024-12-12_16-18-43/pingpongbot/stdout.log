@@ -1,56 +1,56 @@
 running egg_info
-creating build/pingpongbot/pingpongbot.egg-info
-writing build/pingpongbot/pingpongbot.egg-info/PKG-INFO
-writing dependency_links to build/pingpongbot/pingpongbot.egg-info/dependency_links.txt
-writing entry points to build/pingpongbot/pingpongbot.egg-info/entry_points.txt
-writing requirements to build/pingpongbot/pingpongbot.egg-info/requires.txt
-writing top-level names to build/pingpongbot/pingpongbot.egg-info/top_level.txt
-writing manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
-reading manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
-writing manifest file 'build/pingpongbot/pingpongbot.egg-info/SOURCES.txt'
+creating build/flyswatter/flyswatter.egg-info
+writing build/flyswatter/flyswatter.egg-info/PKG-INFO
+writing dependency_links to build/flyswatter/flyswatter.egg-info/dependency_links.txt
+writing entry points to build/flyswatter/flyswatter.egg-info/entry_points.txt
+writing requirements to build/flyswatter/flyswatter.egg-info/requires.txt
+writing top-level names to build/flyswatter/flyswatter.egg-info/top_level.txt
+writing manifest file 'build/flyswatter/flyswatter.egg-info/SOURCES.txt'
+reading manifest file 'build/flyswatter/flyswatter.egg-info/SOURCES.txt'
+writing manifest file 'build/flyswatter/flyswatter.egg-info/SOURCES.txt'
 running build
 running build_py
-creating /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build
-creating /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib
-creating /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
-copying pingpongbot/ball.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
-copying pingpongbot/__init__.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
-copying pingpongbot/test.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
-copying pingpongbot/robot.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot
-creating /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
-copying pingpongbot/utils/__init__.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
-copying pingpongbot/utils/GeneratorNode.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
-copying pingpongbot/utils/TransformHelpers.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
-copying pingpongbot/utils/TrajectoryUtils.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
-copying pingpongbot/utils/KinematicChain.py -> /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils
+creating /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build
+creating /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib
+creating /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter
+copying flyswatter/ball.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter
+copying flyswatter/__init__.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter
+copying flyswatter/test.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter
+copying flyswatter/robot.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter
+creating /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils
+copying flyswatter/utils/__init__.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils
+copying flyswatter/utils/GeneratorNode.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils
+copying flyswatter/utils/TransformHelpers.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils
+copying flyswatter/utils/TrajectoryUtils.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils
+copying flyswatter/utils/KinematicChain.py -> /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils
 running install
 running install_lib
-creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/ball.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
-creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/__init__.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/GeneratorNode.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/TransformHelpers.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/TrajectoryUtils.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/utils/KinematicChain.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/__init__.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/test.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
-copying /home/baaqerfarhat/robotws/src/PingPongBot/build/pingpongbot/build/lib/pingpongbot/robot.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/ball.py to ball.cpython-310.pyc
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/__init__.py to __init__.cpython-310.pyc
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/GeneratorNode.py to GeneratorNode.cpython-310.pyc
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/TransformHelpers.py to TransformHelpers.cpython-310.pyc
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/TrajectoryUtils.py to TrajectoryUtils.cpython-310.pyc
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/utils/KinematicChain.py to KinematicChain.cpython-310.pyc
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/__init__.py to __init__.cpython-310.pyc
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/test.py to test.cpython-310.pyc
-byte-compiling /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/lib/python3.10/site-packages/pingpongbot/robot.py to robot.cpython-310.pyc
+creating /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/ball.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter
+creating /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils/__init__.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils/GeneratorNode.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils/TransformHelpers.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils/TrajectoryUtils.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/utils/KinematicChain.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/__init__.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/test.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter
+copying /home/baaqerfarhat/robotws/src/flyswatter/build/flyswatter/build/lib/flyswatter/robot.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/ball.py to ball.cpython-310.pyc
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils/GeneratorNode.py to GeneratorNode.cpython-310.pyc
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils/TransformHelpers.py to TransformHelpers.cpython-310.pyc
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils/TrajectoryUtils.py to TrajectoryUtils.cpython-310.pyc
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/utils/KinematicChain.py to KinematicChain.cpython-310.pyc
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/test.py to test.cpython-310.pyc
+byte-compiling /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/lib/python3.10/site-packages/flyswatter/robot.py to robot.cpython-310.pyc
 running install_data
-creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/ament_index
-creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/ament_index/resource_index
-creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/ament_index/resource_index/packages
-copying resource/pingpongbot -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/ament_index/resource_index/packages
-copying package.xml -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot
-creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/launch
-copying launch/hitball.launch.py -> /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/launch
-creating /home/baaqerfarhat/robotws/src/PingPongBot/install/pingpongbot/share/pingpongbot/rviz
+creating /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/ament_index
+creating /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/ament_index/resource_index
+creating /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/ament_index/resource_index/packages
+copying resource/flyswatter -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/ament_index/resource_index/packages
+copying package.xml -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/flyswatter
+creating /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/flyswatter/launch
+copying launch/hitball.launch.py -> /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/flyswatter/launch
+creating /home/baaqerfarhat/robotws/src/flyswatter/install/flyswatter/share/flyswatter/rviz
